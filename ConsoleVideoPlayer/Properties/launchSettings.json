@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ConsoleVideoPlayer": {
+      "commandName": "Project",
+      "commandLineArgs": "\"E:\\Share\\test.mp4\""
+    }
+  }
+}
