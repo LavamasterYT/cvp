@@ -61,7 +61,9 @@ public class Renderer : IDisposable
         bufferSize = new COORD(Width, (short)(Height / 2));
         rect = new PSMALL_RECT() { Left = 0, Top = 0, Right = Width, Bottom = (short)(Height / 2) };
 
-        hWnd = CreateFile("CONOUT$", 0x40000000, 2, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+        hWnd = GetStdHandle(STD_OUTPUT_HANDLE);
+
+        SetConsoleMode(hWnd, ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
     }
 
     public void SetPixel(int x, int y, ConsoleColor col)
