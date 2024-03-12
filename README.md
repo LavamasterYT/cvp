@@ -98,12 +98,12 @@ Unlike the previous version which utilized the Windows API to manually write to 
 For rendering in palette mode, the output buffer is converted to the closest color in the 16 color palette using the euclidean algorithm. Then using ANSI sequences, it is written to the terminal. In truecolor mode, there is no conversion and instead each RGB value is rendered in the terminal. Due to more data being passed, it is slower than palette mode. However, it is still faster than the previous version. The program switches to the alternate screen buffer to prevent from messing with the main screen buffer.
 
 With now using ANSI sequences to render to the terminal, it is possible to render video that looks as good as this:
-![Demon Slayer in truecolor](img/truecolor1.png?raw=true)
-![Demon Slayer in truecolor](img/truecolor2.gif?raw=true)
+![Demon Slayer in truecolor](img/truecolor1.jpg?raw=true)
+![Demon Slayer in truecolor](img/truecolor2.jpg?raw=true)
 
 As opposed to this (palette mode, also how old version looked):
 ![Demon Slayer in palette mode](img/palette1.png?raw=true)
-![Demon Slayer in palette mode](img/palette2.gif?raw=true)
+![Demon Slayer in palette mode](img/palette2.png?raw=true)
 
 ## Credits
 - [FFmpeg](https://ffmpeg.org/) for decoding functions
