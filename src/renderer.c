@@ -9,7 +9,7 @@
 #ifdef _WIN32
 #include <Windows.h>
 #define RENDERER_PIXEL_CHAR "\xDF"
-#elif defined(__unix__) || defined(__apple__)
+#elif defined(__unix__) || defined(__APPLE__)
 #include <sys/ioctl.h>
 #include <unistd.h>
 #define RENDERER_PIXEL_CHAR "▀"
@@ -240,7 +240,7 @@ renderer_term_window* renderer_init(int mode)
 	// get console width and height
 	window->width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 	window->height = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1) * 2;
-#elif defined(__unix__) || defined(__apple__)
+#elif defined(__unix__) || defined(__APPLE__)
 	struct winsize size;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
 

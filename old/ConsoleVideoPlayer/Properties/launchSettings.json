@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "ConsoleVideoPlayer": {
-      "commandName": "Project",
-      "commandLineArgs": "\"E:\\Share\\bad apple.mp4\""
-    }
-  }
-}
