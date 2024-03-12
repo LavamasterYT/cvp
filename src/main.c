@@ -16,7 +16,7 @@ void handle_interrupt(int sig)
     requested_int = 1;
 }
 
-int handle_args(int argc, char** argv, int* mode, char** input)
+int handle_args(int argc, char** argv, int* mode, char** input, int* multithreading)
 {
     if (argc == 1)
     {
@@ -33,19 +33,27 @@ int handle_args(int argc, char** argv, int* mode, char** input)
                 {
                     *mode = RENDERER_FULL_COLOR;
                 }
+                else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--multithreading") == 0)
+                {
+                    *multithreading = 1;
+                }
                 else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
                 {
                     printf("Usage: cvp [options] <input>\n");
                     printf("Plays a video file on the terminal.\n");
                     printf("\n");
                     printf("  -f, --full-color      Play the video file in RGB mode\n");
+                    printf("  -t, --multithreading  Uses multithreading to decode videos.\n");
+                    printf("                        Some codecs have trouble with this on, others\n");
+                    printf("                        only work with this on. Use if video is playing\n");
+                    printf("                        slowly.\n");
                     printf("  -h, --help            Display this help and exit\n");
                     printf("  -v, --version         Output version information and exit\n");
                     exit(0);
                 }
                 else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0)
                 {
-                    printf("cvp 1.00\n");
+                    printf("cvp 1.01\n");
                     exit(0);
                 }
                 else
@@ -83,9 +91,10 @@ int handle_args(int argc, char** argv, int* mode, char** input)
 int main(int argc, char** argv)
 {
     int mode = RENDERER_PALETTE; // Drawing mode
+    int multithreading = 0; // Use multithreading
     char* input = NULL; // File input
 
-    if (handle_args(argc, argv, &mode, &input) != 0)
+    if (handle_args(argc, argv, &mode, &input, &multithreading) != 0)
         return 1;
 
     signal(SIGINT, handle_interrupt);
@@ -100,7 +109,7 @@ int main(int argc, char** argv)
 
     renderer_term_window* window = renderer_init(mode);
 
-    if (decoder_open_input(ctx, input, window->width, window->height) < 0)
+    if (decoder_open_input(ctx, input, window->width, window->height, multithreading) < 0)
     {
         renderer_destroy(window);
         printf("cvp: cannot access %s\n", input);

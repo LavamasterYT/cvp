@@ -38,7 +38,7 @@ decoder_context* decoder_init()
 	return ctx;
 }
 
-int decoder_open_input(decoder_context* ctx, const char* file, int width, int height)
+int decoder_open_input(decoder_context* ctx, const char* file, int width, int height, int use_multithreading)
 {
 	if (ctx == NULL)
 		return -1; // no ctx
@@ -60,7 +60,7 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 
 	ctx->width = width;
 	ctx->height = height;
-	ctx->fps = ctx->format_ctx->streams[ctx->index]->r_frame_rate.num;
+	ctx->fps = (double)ctx->format_ctx->streams[ctx->index]->r_frame_rate.num / (double)ctx->format_ctx->streams[ctx->index]->r_frame_rate.den;
 
 	ctx->codec_ctx = avcodec_alloc_context3(ctx->codec);
 	if (ctx->codec_ctx == NULL)
@@ -69,6 +69,18 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 	ret = avcodec_parameters_to_context(ctx->codec_ctx, ctx->format_ctx->streams[ctx->index]->codecpar);
 	if (ret < 0)
 		return -1; // failed filling codec context
+
+	if (use_multithreading)
+	{
+		// attempt to use multithreading
+		ctx->codec_ctx->thread_count = 0;
+		if (ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS)
+			ctx->codec_ctx->thread_type = FF_THREAD_FRAME;
+		else if (ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
+			ctx->codec_ctx->thread_type = FF_THREAD_SLICE;
+		else
+			ctx->codec_ctx->thread_count = 1;
+	}
 
 	if (avcodec_open2(ctx->codec_ctx, ctx->codec, NULL))
 		return -1; // failed opening codec

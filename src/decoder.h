@@ -47,7 +47,7 @@ typedef struct
 	int index;
 	int width;
 	int height;
-	int fps;
+	double fps;
 } decoder_context;
 
 typedef struct
@@ -74,14 +74,15 @@ decoder_rgb* decoder_alloc_rgb(decoder_context* ctx);
 /**
 * Opens a file, and sets up scalers to read frames at a specified width and height
 * 
-* @param ctx	Decoder context
-* @param file	Path to video file to open
-* @param width	Target width to scale frames to
-* @param height	Target height to scale frames to
+* @param ctx				Decoder context
+* @param file				Path to video file to open
+* @param width				Target width to scale frames to
+* @param height				Target height to scale frames to
+* @param use_multithreading	Use multithreading, use for some videos that are slow to decode.
 * 
 * @return >=0 if successful opening the file, otherwise failed opening file.
 */
-int decoder_open_input(decoder_context* ctx, const char* file, int width, int height);
+int decoder_open_input(decoder_context* ctx, const char* file, int width, int height, int use_multithreading);
 
 /**
 * Reads the next available frame and writes it to buffer/
