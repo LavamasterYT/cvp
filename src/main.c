@@ -109,6 +109,8 @@ int main(int argc, char** argv)
 
     renderer_term_window* window = renderer_init(mode);
 
+    printf("\x1B]0;%dx%d\x1B\x5C", window->width, window->height);
+
     if (decoder_open_input(ctx, input, window->width, window->height, multithreading) < 0)
     {
         renderer_destroy(window);

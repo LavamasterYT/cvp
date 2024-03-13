@@ -83,7 +83,7 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 		pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
 		if (pos >= max_str_size)
 		{
-			printf("%s", str_buf);
+			puts(str_buf);
 			pos = 0;
 		}
 
@@ -110,7 +110,7 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 			// Check if buffer is full and reset
 			if (pos >= max_str_size)
 			{
-				printf("%s", str_buf);
+				puts(str_buf);
 				pos = 0;
 			}
 
@@ -119,7 +119,7 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 		}
 	}
 
-	printf("%s", str_buf);
+	puts(str_buf);
 	free(str_buf);
 }
 
@@ -145,7 +145,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 		pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
 		if (pos >= max_str_size)
 		{
-			printf("%s", str_buf);
+			puts(str_buf);
 			pos = 0;
 		}
 
@@ -191,7 +191,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 			// Check if buffer is full and reset
 			if (pos >= max_str_size)
 			{
-				printf("%s", str_buf);
+				puts(str_buf);
 				pos = 0;
 			}
 
@@ -200,7 +200,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 		}
 	}
 
-	printf("%s", str_buf);
+	puts(str_buf);
 	free(str_buf);
 }
 
