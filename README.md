@@ -4,13 +4,6 @@
 ![Showcase of Big Buck Bunny playing](img/showcase.gif?raw=true)
 
 ## Building
-Building this project is easy, just run the following commands in the `ConsoleVideoProject` folder inside the `src` folder (you need .NET 6.0 to build):
-```
-$ dotnet restore
-$ dotnet run
-```
-> This project only works on Windows due to relying on the Windows API to manipulate the terminal (more on this later).
-Build instructions are different on each platform, however they all have one thing in common: you will need a C compiler and the FFmpeg development libraries
 
 ### Debian/Ubuntu
 Update apt:
