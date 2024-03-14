@@ -49,7 +49,7 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                 }
                 else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0)
                 {
-                    printf("cvp 1.01\n");
+                    printf("cvp 1.1\n");
                     exit(0);
                 }
                 else
