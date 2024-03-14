@@ -12,14 +12,14 @@
 #define renderer_compare(x, y) ((x.r == y.r) && (x.g == y.g) && (x.b == y.b))
 #define renderer_rgb_distance(x, y) ((x.r - y.r) * (x.r - y.r)) + ((x.g - y.g) * (x.g - y.g)) + ((x.b - y.b) * (x.b - y.b))
 
-typedef struct
+typedef struct renderer_rgb
 {
 	uint8_t r;
 	uint8_t g;
 	uint8_t b;
 } renderer_rgb;
 
-typedef struct
+typedef struct renderer_term_window
 {
 	int width;
 	int height;

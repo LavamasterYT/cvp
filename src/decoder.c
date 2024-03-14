@@ -22,6 +22,7 @@ decoder_context* decoder_init()
 	ctx->index = -1;
 	ctx->width = -1;
 	ctx->height = -1;
+	ctx->duration = 0;
 	ctx->fps = -1;
 
 	av_log_set_level(AV_LOG_QUIET); // disable ffmpeg output
@@ -61,6 +62,7 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 	ctx->width = width;
 	ctx->height = height;
 	ctx->fps = (double)ctx->format_ctx->streams[ctx->index]->r_frame_rate.num / (double)ctx->format_ctx->streams[ctx->index]->r_frame_rate.den;
+	ctx->duration = ctx->format_ctx->duration / 1000;
 
 	ctx->codec_ctx = avcodec_alloc_context3(ctx->codec);
 	if (ctx->codec_ctx == NULL)
@@ -108,31 +110,25 @@ decoder_rgb* decoder_alloc_rgb(decoder_context* ctx)
 
 int decoder_read_frame(decoder_context* ctx, decoder_rgb* buffer)
 {
-	av_packet_unref(ctx->packet);
-
 	while (1)
 	{
-		if (av_read_frame(ctx->format_ctx, ctx->packet) < 0)
-		{
+		av_packet_unref(ctx->packet);
+
+		int ret = av_read_frame(ctx->format_ctx, ctx->packet);
+
+		if (ret < 0)
 			return -1; // eof or error reading frame
-		}
 
 		if (ctx->packet->stream_index != ctx->index)
-		{
 			continue;
-		}
 
 		if (avcodec_send_packet(ctx->codec_ctx, ctx->packet) || avcodec_receive_frame(ctx->codec_ctx, ctx->frame))
-		{
 			continue;
-		}
 
 		av_packet_unref(ctx->packet);
 
 		if (av_image_fill_arrays(ctx->rgb_frame->data, ctx->rgb_frame->linesize, (uint8_t*)buffer, AV_PIX_FMT_RGB24, ctx->width, ctx->height, 1) < 0)
-		{
 			return -1; // error on image fill arrays
-		}
 
 		// scale image down
 		sws_scale(ctx->sws_ctx, (const uint8_t* const*)ctx->frame->data, ctx->frame->linesize, 0, ctx->codec_ctx->height, ctx->rgb_frame->data, ctx->rgb_frame->linesize);
@@ -143,6 +139,9 @@ int decoder_read_frame(decoder_context* ctx, decoder_rgb* buffer)
 			int index = y * ctx->rgb_frame->linesize[0];
 			memcpy(&buffer[ctx->width * y], &ctx->rgb_frame->data[0][index], ctx->width * sizeof(decoder_rgb));
 		}
+
+		av_frame_unref(ctx->frame);
+		av_frame_unref(ctx->rgb_frame);
 
 		return 0;
 	}

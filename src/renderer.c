@@ -62,14 +62,14 @@ void renderer_clear_palette(renderer_term_window* window)
 
 void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 {
-	size_t max_str_size = window->width * window->height * 25;
+	size_t max_str_size = window->width * window->height * 20;
 	char* str_buf = (char*)malloc(max_str_size);
 
 	if (str_buf == NULL)
 		return;
 
-	int pos = 0;
-	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H");
+	size_t pos = 0;
+	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
 
 	renderer_rgb og_top;
 	memset(&og_top, 0, sizeof(renderer_rgb));
@@ -80,7 +80,7 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 	// Loop through the buffer and add correct ansi sequence
 	for (int y = 0; y < window->height; y += 2)
 	{
-		pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
+		//pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
 		if (pos >= max_str_size)
 		{
 			puts(str_buf);
@@ -131,7 +131,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 	if (str_buf == NULL)
 		return;
 
-	int pos = 0;
+	size_t pos = 0;
 	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H");
 
 	int top = 30;

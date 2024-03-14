@@ -1,102 +1,38 @@
 #include <stdio.h>
-#include <libavutil/time.h>
 #include <stdint.h>
 #include <string.h>
 #include <signal.h>
+#include <libavutil/time.h>
+
+#ifdef _WIN32
+#include <conio.h>
+#endif
 
 #include "renderer.h"
+#include "audio.h"
 #include "decoder.h"
-
-// signal stuff
+#include "ui.h"
+#include "utils.h"
 
 int requested_int = 0;
 
 void handle_interrupt(int sig)
 {
+    (void)sig;
     requested_int = 1;
-}
-
-int handle_args(int argc, char** argv, int* mode, char** input, int* multithreading)
-{
-    if (argc == 1)
-    {
-        printf("cvp: usage error: Input file required\n");
-        return 1;
-    }
-    else
-    {
-        for (int i = 1; i < argc; i++)
-        {
-            if (argv[i][0] == '-')
-            {
-                if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--full-color") == 0)
-                {
-                    *mode = RENDERER_FULL_COLOR;
-                }
-                else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--multithreading") == 0)
-                {
-                    *multithreading = 1;
-                }
-                else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
-                {
-                    printf("Usage: cvp [options] <input>\n");
-                    printf("Plays a video file on the terminal.\n");
-                    printf("\n");
-                    printf("  -f, --full-color      Play the video file in RGB mode\n");
-                    printf("  -t, --multithreading  Uses multithreading to decode videos.\n");
-                    printf("                        Some codecs have trouble with this on, others\n");
-                    printf("                        only work with this on. Use if video is playing\n");
-                    printf("                        slowly.\n");
-                    printf("  -h, --help            Display this help and exit\n");
-                    printf("  -v, --version         Output version information and exit\n");
-                    exit(0);
-                }
-                else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0)
-                {
-                    printf("cvp 1.01\n");
-                    exit(0);
-                }
-                else
-                {
-                    printf("cvp: invalid option '%s'\n", argv[i]);
-                    printf("Try 'cvp --help' for more information.\n");
-                    return 1;
-                }
-            }
-            else
-            {
-                if (*input == NULL)
-                {
-                    *input = argv[i];
-                }
-                else
-                {
-                    printf("cvp: too many arguments given -- %s\n", argv[i]);
-                    printf("Try 'cvp --help' for more information.\n");
-                    return 1;
-                }
-            }
-        }
-
-        if (*input == NULL)
-        {
-            printf("cvp: no input file given\n");
-            return 1;
-        }
-    }
-
-    return 0;
 }
 
 int main(int argc, char** argv)
 {
-    int mode = RENDERER_PALETTE; // Drawing mode
-    int multithreading = 0; // Use multithreading
-    char* input = NULL; // File input
+    // init settings and handle cmd line arguments
+    cvp_settings settings;
+    settings.audio = 0;
+    settings.input = NULL;
+    settings.multithreading = 0;
+    settings.mode = RENDERER_PALETTE;
+    handle_args(argc, argv, &settings);
 
-    if (handle_args(argc, argv, &mode, &input, &multithreading) != 0)
-        return 1;
-
+    // stop playing if we receive interrupt
     signal(SIGINT, handle_interrupt);
 
     decoder_context* ctx = decoder_init();
@@ -107,14 +43,13 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    renderer_term_window* window = renderer_init(mode);
+    renderer_term_window* window = renderer_init(settings.mode);
+    window->height -= 2; // make space for ui and "fix" a bug in the renderer
 
-    printf("\x1B]0;%dx%d\x1B\x5C", window->width, window->height);
-
-    if (decoder_open_input(ctx, input, window->width, window->height, multithreading) < 0)
+    if (decoder_open_input(ctx, settings.input, window->width, window->height, settings.multithreading) < 0)
     {
         renderer_destroy(window);
-        printf("cvp: cannot access %s\n", input);
+        printf("cvp: cannot access %s\n", settings.input);
         decoder_ctx_destroy(ctx);
         return -1;
     }
@@ -128,33 +63,94 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    audio_context* audio_ctx = NULL;
+    if (settings.audio)
+        audio_ctx = audio_init(settings.input);
+
+    ui_context* ui_ctx = ui_init(ctx->duration, ctx->width, ctx->height + 1);
+
     int frame = 0;
     int frame_to_reach = 0;
 
-    int64_t ms = 0;
-    int64_t start =  av_gettime();
+    int64_t ms = 0; // elapsed ms since start of video
+    int64_t start = 0; // time when video started
+    int64_t fps_timer = 0; // time when frame started
 
-    while (decoder_read_frame(ctx, video_buffer) == 0 || !requested_int)
+    if (audio_ctx != NULL)
+        audio_playpause(audio_ctx);
+
+    start = av_gettime();
+
+    while (decoder_read_frame(ctx, video_buffer) == 0)
     {
         if (requested_int)
             break;
 
         frame++;
-        if (frame < frame_to_reach)
+        if (frame < frame_to_reach) // skip frames if necessary
             continue;
 
         renderer_draw(window, (renderer_rgb*)video_buffer);
+
+        if (ui_ctx != NULL)
+            ui_draw(ui_ctx, ms);
+
+        show_fps((av_gettime() - fps_timer) / 1000);
+        fps_timer = av_gettime(); // reset frame timer
 
         do
         {
             if (requested_int)
                 break;
 
-            ms = (av_gettime() - start) / 1000;
-            frame_to_reach = (int)(floor(ms * ctx->fps / 1000.0)) + 1;
-        } while (frame_to_reach == frame);
+            if (_kbhit()) // check for keyboard input
+            {
+                int key = getch();
+
+                switch (key)
+                {
+                case ' ': // space
+                    // pause audio
+                    if (audio_ctx != NULL)
+                        audio_playpause(audio_ctx);
+
+                    // time when pause period started
+                    int64_t p_start = av_gettime();
+                    while (1) // wait for interrupt or when space is pressed
+                    {
+                        if (requested_int)
+                            break;
+
+                        if (_kbhit())
+                        {
+                            if (_getch() == ' ')
+                            {
+                                break;
+                            }
+                        }
+                        av_usleep(10000);
+                    }
+
+                    // add pause time to start time to offset
+                    start += av_gettime() - p_start;
+
+                    // play audio again
+                    if (audio_ctx != NULL)
+                        audio_playpause(audio_ctx);
+                    break;
+                }
+            }
+
+            ms = (av_gettime() - start) / 1000; // calculate elapsed ms
+            frame_to_reach = (int)(floor(ms * ctx->fps / 1000.0)) + 1; // calculate any frames needed to skip
+        } while (frame_to_reach <= frame);
     }
 
+    // free resources
+    if (audio_ctx != NULL)
+        audio_destroy(audio_ctx);
+
+    ui_destroy(ui_ctx);
     free((void*)video_buffer);
     decoder_ctx_destroy(ctx);
     renderer_destroy(window);

@@ -3,16 +3,25 @@
 
 ![Showcase of Big Buck Bunny playing](img/showcase.gif?raw=true)
 
+## Download
+
+Binaries should be provided "hopefully" for the latest release.
+I can't guarantee that the binaries will run successfully, so it is advise that you build this yourself.
+
 ## Building
+Instructions basically follow this order:
+- Download development tools (gcc, make, pkg-config, Visual Studio, etc)
+- Install necessary libraries (FFmpeg, libavcodec, libavformat, libavutil, libswscale, libmpv)
+- Build the source files inside the src directory and link with libraries above
 
 ### Debian/Ubuntu
 Update apt:
 ```
 sudo apt-get update
 ```
-Download the FFmpeg libararies:
+Download the necessary libararies and tools:
 ```
-sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev build-essential pkg-config
+sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libmpv-dev build-essential pkg-config
 ```
 Finally, build using make:
 ```
@@ -22,7 +31,7 @@ make
 ### Other Linux Distros
 Other distros are going to be different, but here is the gist:
 - Install gcc, make, and pkg-config
-- Install the FFmpeg libraries (libavcodec, libavformat, libavutil, libswscale)
+- Install the necessary libraries (libavcodec, libavformat, libavutil, libswscale, libmpv, mpv, ffmpeg)
 - Build using make
 
 ### macOS
@@ -30,14 +39,18 @@ Install the Xcode command line tools:
 ```
 xcode-select --install
 ```
-Install the FFmpeg libraries:
+Install the needed dependencies:
 ```
-brew install ffmpeg
+brew install ffmpeg mpv
 ```
 Finally, build using make:
 ```
 make
 ```
+If for some reason it doesn't want to build, do the following steps:
+- With pkg-config, run `pkg-config --libs libavcodec libavformat libavutil libswscale mpv`
+- Build by running `gcc *.c <output of pkg-config command> -o cvp`
+
 > If you don't have brew, install it [here](https://brew.sh/).
 
 ### Windows
@@ -46,8 +59,10 @@ Unfourtunately, I could not find a way to build this on Windows with Makefile, h
 - Clone [vcpkg](https://github.com/microsoft/vcpkg) to a safe directory.
 - Navigate to the directory you cloned vcpkg to, and run `bootstrap-vcpkg.bat`
 - Install the FFmpeg libraries by running `vcpkg install ffmpeg`
+- Download the [mpv](https://github.com/mpv-player/mpv) development libraries for Windows
 - Integrate vcpkg with Visual Studio by running `vcpkg integrate install`
 - Create a new project in Visual Studio, and add the source files to the project.
+- Link mpv libraries to the project.
 - Build is as you would normally build a project in Visual Studio.
 
 ## Usage
@@ -59,10 +74,16 @@ To play a video file in full RGB mode, run the following command:
 ```
 $ cvp -f <video file>
 ```
+To play a video file with audio:
+```
+$ cvp -a <video file>
+```
 More help is available by running:
 ```
 $ cvp -h
 ```
+
+> Some codecs (i think thats the issue? i still need to look into it) have trouble playing back. If you do, you can run `cvp` with multithreading by adding the `-t`  flag.
 
 ### Playback
 The dimension the video will be rendered will be based off the current size of the terminal (so feel free to experiment with different sizes). The video will by default render in 16 colors for compatibility with most terminal emulators. Video frames are scaled down to the size of the terminal, then its colors are converted to the closest color in the 16 color palette that is defined in [renderer.c](https://github.com/LavamasterYT/cvp/blob/main/src/renderer.c#L19).

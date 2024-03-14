@@ -1,56 +1,26 @@
 #ifndef DECODER_H
 #define DECODER_H
 
-/*
-
-	SOME QUICK DOCUMENTATION ABOUT DECODER.H
-
-	What is it?
-	decoder.h is a C library that utilizes the FFmpeg libraries to decode a video file, and read each frame to a simple RGB buffer
-	for the user to do whatever they wish to do. They have the option to scale it down to a set dimension.
-
-	How do I use it?
-
-	Initialize the decoder:
-	decoder_context* ctx = decoder_init();
-
-	This initialize backend stuff to prepare reading files.
-
-	Open a file:
-	decoder_open_input(ctx, "sample file.mp4");
-
-	Opens a file to be ready to read from.
-
-	Read streams from file:
-	int len;
-	decoder_stream* streams = decoder_get_streams(ctx, &len);
-
-	Reads the streams from the video file and sets the len variable to the count of streams in said video file.
-
-	// CONTINUE LATER
-
-	
-	*/
-
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
-typedef struct
+typedef struct decoder_context
 {
-	AVFormatContext* format_ctx;
-	AVCodecContext* codec_ctx;
-	struct SwsContext* sws_ctx;
-	AVCodec* codec;
-	AVFrame* frame;
-	AVFrame* rgb_frame;
-	AVPacket* packet;
-	int index;
-	int width;
-	int height;
-	double fps;
+	AVFormatContext* format_ctx; // format context
+	AVCodecContext* codec_ctx; // codec context
+	struct SwsContext* sws_ctx; // scaling context
+	AVCodec* codec; // video codec
+	AVFrame* frame; // original video frame
+	AVFrame* rgb_frame; // downscaled video frame
+	AVPacket* packet; // video packet
+	int index; // stream index
+	int width; // output width to scale down/up to
+	int height; // output height to scale down/up to
+	int duration; // length of video (in ms)
+	double fps; // self-explanitory
 } decoder_context;
 
-typedef struct
+typedef struct decoder_rgb
 {
 	uint8_t r;
 	uint8_t g;
