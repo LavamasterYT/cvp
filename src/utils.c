@@ -3,8 +3,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "renderer.h"
+#include "audio.h"
+
+void help()
+{
+    printf("Usage: cvp [options] <input>\n");
+    printf("Plays a video file on the terminal.\n");
+    printf("\n");
+    printf("  -f, --full-color      Play the video file in RGB mode\n");
+    printf("  -a, --audio           Play audio\n");
+    printf("  -l, --libao           Uses libao instead of SDL for audio playback\n");
+    printf("  -t, --multithreading  Uses multithreading to decode videos.\n");
+    printf("                        Some codecs have trouble with this on, others\n");
+    printf("                        only work with this on. Use if video is playing\n");
+    printf("                        slowly.\n");
+    printf("  -h, --help            Display this help and exit\n");
+    printf("  -v, --version         Output version information and exit\n");
+}
+
+void version()
+{
+    printf("cvp 1.2\n");
+}
 
 // very rough argument handling function
 void handle_args(int argc, char** argv, cvp_settings* settings)
@@ -20,43 +43,58 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
         {
             if (argv[i][0] == '-')
             {
-                if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--full-color") == 0)
+                if (strlen(argv[i]) >= 2)
                 {
-                    settings->mode = RENDERER_FULL_COLOR;
-                }
-                else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--multithreading") == 0)
-                {
-                    settings->multithreading = 1;
-                }
-                else if (strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--audio") == 0)
-                {
-                    settings->audio = 1;
-                }
-                else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
-                {
-                    printf("Usage: cvp [options] <input>\n");
-                    printf("Plays a video file on the terminal.\n");
-                    printf("\n");
-                    printf("  -f, --full-color      Play the video file in RGB mode\n");
-                    printf("  -a, --audio           Play audio\n");
-                    printf("  -t, --multithreading  Uses multithreading to decode videos.\n");
-                    printf("                        Some codecs have trouble with this on, others\n");
-                    printf("                        only work with this on. Use if video is playing\n");
-                    printf("                        slowly.\n");
-                    printf("  -h, --help            Display this help and exit\n");
-                    printf("  -v, --version         Output version information and exit\n");
-                    exit(0);
-                }
-                else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0)
-                {
-                    printf("cvp 1.1\n");
-                    exit(0);
-                }
-                else
-                {
-                    printf("cvp: invalid option '%s'\n", argv[i]);
-                    printf("Try 'cvp --help' for more information.\n");
-                    exit(1);
+                    if (argv[i][1] == '-')
+                    {
+                        if (strcmp(argv[i], "--full-color") == 0) settings->mode = RENDERER_FULL_COLOR;
+                        else if (strcmp(argv[i], "--multithreading") == 0) settings->multithreading = 1;
+                        else if (strcmp(argv[i], "--audio") == 0) settings->audio = 1;
+                        else if (strcmp(argv[i], "--libao") == 0) settings->audio_driver = AUDIO_DRIVER_LIBAO;
+                        else if (strcmp(argv[i], "--help") == 0)
+                        {
+                            help();
+                            exit(0);
+                        }
+                        else if (strcmp(argv[i], "--version") == 0)
+                        {
+                            version();
+                            exit(0);
+                        }
+                        else
+                        {
+                            printf("cvp: invalid option -- '%s'\n", argv[i]);
+                            printf("Try 'cvp --help' for more information.\n");
+                            exit(1);
+                        }
+                    }
+                    else
+                    {
+                        for (size_t j = 1; j < strlen(argv[i]); j++)
+                        {
+                            if (argv[i][j] == 'f') settings->mode = RENDERER_FULL_COLOR;
+                            else if (argv[i][j] == 't') settings->multithreading = 1;
+                            else if (argv[i][j] == 'a') settings->audio = 1;
+                            else if (argv[i][j] == 'l') settings->audio_driver = AUDIO_DRIVER_LIBAO;
+                            else if (argv[i][j] == 'h' || argv[i][j] == '?')
+                            {
+                                help();
+                                exit(0);
+                            }
+                            else if (argv[i][j] == 'v')
+                            {
+                                version();
+                                exit(0);
+                            }
+                            else
+                            {
+                                printf("cvp: invalid option -- '%s'\n", argv[i]);
+                                printf("Try 'cvp --help' for more information.\n");
+                                exit(1);
+                            }
+
+                        }
+                    }
                 }
             }
             else
@@ -84,7 +122,9 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
 
 void show_fps(int64_t fps)
 {
-    printf("\x1B]0;%ld FPS\x1B\x5C", 1000 / fps );
+    if (fps == 0)
+        fps = 1;
+    printf("\x1B]0;%" PRId64 " FPS\x1B\x5C", 1000 / fps );
 }
 
 #if defined(__unix__) || defined(__APPLE__)

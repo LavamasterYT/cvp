@@ -1,73 +1,187 @@
-/*
-This is the audio implementation for now until I can figure out how to use
-SDL, libao, or OpenAL with the FFmpeg libraries to play raw audio packets.
-
-This is a rough audio implementation that uses libmpv.
-*/
-
 #include "audio.h"
 
 #include <stdlib.h>
-#include <mpv/client.h>
+#include <SDL2/SDL.h>
+#include <libswresample/swresample.h>
+#include <libavcodec/avcodec.h>
 
-audio_context* audio_init(char* input)
+int audio_init_sdl(audio_context* ctx, int channels)
+{
+	SDL_SetMainReady();
+	if (SDL_Init(SDL_INIT_AUDIO))
+		return 1;
+
+	SDL_AudioSpec want;
+	SDL_zero(want);
+	SDL_zero(ctx->specs);
+	want.freq = 44100;
+	want.channels = channels;
+	want.format = AUDIO_S16SYS;
+	ctx->sdl_device = SDL_OpenAudioDevice(NULL, 0, &want, &ctx->specs, 0);
+
+	if (ctx->sdl_device < 1)
+	{
+		SDL_Quit();
+		return 2;
+	}
+
+	SDL_PauseAudioDevice(ctx->sdl_device, 0);
+
+	ctx->driver = AUDIO_DRIVER_SDL;
+
+	return 0;
+}
+
+int audio_init_libao(audio_context* ctx, int channels)
+{
+	ao_initialize();
+	ao_sample_format format;
+	format.bits = 16;
+	format.channels = channels;
+	format.byte_format = AO_FMT_NATIVE;
+	format.matrix = 0;
+	format.rate = 44100;
+	ctx->device = ao_open_live(ao_default_driver_id(), &format, NULL);
+
+	ctx->driver = AUDIO_DRIVER_SDL;
+
+	if (ctx->device == NULL)
+		return 1;
+
+	return 0;
+}
+
+audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
 {
 	audio_context* ctx = (audio_context*)malloc(sizeof(audio_context));
 	if (ctx == NULL)
 		return NULL;
+	
+	ctx->codec_ctx = codec_ctx;
+	ctx->audio_buffer = NULL;
+	ctx->resampled_frame = av_frame_alloc();
+	ctx->resampler = swr_alloc();
+	
+	int ret  = 0;
+#ifdef _WIN32
+	ret = swr_alloc_set_opts2(&ctx->resampler, &codec_ctx->ch_layout, AV_SAMPLE_FMT_S16, 44100, &codec_ctx->ch_layout, codec_ctx->sample_fmt, codec_ctx->sample_rate, 0, NULL);
+#else
+	ctx->resampler = swr_alloc_set_opts(ctx->resampler, codec_ctx->channel_layout, AV_SAMPLE_FMT_S16, 44100, codec_ctx->channel_layout, codec_ctx->sample_fmt, codec_ctx->sample_rate, 0, NULL);
+	if (ctx->resampler == NULL)
+		ret = -1;
+	else
+		ret = 0;
+#endif
 
-	// init mpv
-	ctx->mpv = mpv_create();
-
-	if (ctx->mpv == NULL)
+	if (ret < 0)
 	{
+		av_frame_free(&ctx->resampled_frame);
 		free(ctx);
 		return NULL;
 	}
 
-	// no video, auto audio device
-	ctx->paused = 0;
-	mpv_set_option_string(ctx->mpv, "video", "no");
-	mpv_set_option_string(ctx->mpv, "audio-deivce", "auto");
+	swr_init(ctx->resampler);
 
-	if (mpv_initialize(ctx->mpv) != 0)
+	if (audio_driver == AUDIO_DRIVER_SDL)
 	{
-		mpv_terminate_destroy(ctx->mpv);
-		ctx->mpv = NULL;
-		free(ctx);
-		return NULL;
-	}
-
-	// load file and wait until fully loaded (mainly for network videos)
-	mpv_command(ctx->mpv, (const char* []) { "loadfile", input, NULL });
-
-	while (1) {
-		mpv_event* event = mpv_wait_event(ctx->mpv, -1);
-		if (event->event_id == MPV_EVENT_FILE_LOADED) {
-			break;
+		if (audio_init_sdl(ctx, codec_ctx->channels))
+		{
+			av_frame_free(&ctx->resampled_frame);
+			swr_free(&ctx->resampler);
+			free(ctx);
+			return NULL;
 		}
 	}
-
-	// pause audio
-	audio_playpause(ctx);
+	else
+	{
+		if (audio_init_libao(ctx, codec_ctx->channels))
+		{
+			av_frame_free(&ctx->resampled_frame);
+			swr_free(&ctx->resampler);
+			free(ctx);
+			return NULL;
+		}
+	}
 
 	return ctx;
 }
 
-void audio_playpause(audio_context* ctx)
+void audio_playdata(audio_context* ctx, AVFrame* data)
 {
 	if (ctx == NULL)
 		return;
 
-	mpv_command_string(ctx->mpv, "cycle pause");
-	if (ctx->paused)
-		ctx->paused = 0;
+	int dst_samples = data->channels * av_rescale_rnd(swr_get_delay(ctx->resampler, data->sample_rate) + data->nb_samples, 44100, data->sample_rate, AV_ROUND_UP);
+	int ret = av_samples_alloc(&ctx->audio_buffer, NULL, 1, dst_samples, AV_SAMPLE_FMT_S16, 1);
+
+	if (ret < 0)
+	{
+		av_frame_unref(data);
+		av_frame_unref(ctx->resampled_frame);
+
+		av_freep(&ctx->audio_buffer);
+		return;
+	}
+
+	dst_samples = data->channels * swr_convert(ctx->resampler, &ctx->audio_buffer, dst_samples, (const uint8_t**)data->data, data->nb_samples);
+	ret = av_samples_fill_arrays(ctx->resampled_frame->data, ctx->resampled_frame->linesize, ctx->audio_buffer, 1, dst_samples, AV_SAMPLE_FMT_S16, 1);
+
+	if (ret < 0)
+	{
+		av_frame_unref(data);
+		av_frame_unref(ctx->resampled_frame);
+
+		av_freep(&ctx->audio_buffer);
+		return;
+	}
+
+	if (ctx->driver == AUDIO_DRIVER_LIBAO)
+		ao_play(ctx->device, ctx->resampled_frame->data[0], ctx->resampled_frame->linesize[0]);
 	else
-		ctx->paused = 1;
+		SDL_QueueAudio(ctx->sdl_device, ctx->resampled_frame->data[0], ctx->resampled_frame->linesize[0]);
+
+	av_frame_unref(data);
+	av_frame_unref(ctx->resampled_frame);
+
+	av_freep(&ctx->audio_buffer);
+}
+
+void audio_wait(audio_context* ctx)
+{
+	if (ctx == NULL)
+		return;
+
+	if (ctx->driver != AUDIO_DRIVER_SDL)
+		return;
+
+	uint32_t remaining = 0;
+
+	while (1)
+	{
+		remaining = SDL_GetQueuedAudioSize(ctx->sdl_device);
+
+		if (remaining < 5)
+			return;
+
+		SDL_Delay(100);
+	}
 }
 
 void audio_destroy(audio_context* ctx)
 {
-	mpv_destroy(ctx->mpv);
+	av_frame_free(&ctx->resampled_frame);
+	swr_free(&ctx->resampler);
+
+	if (ctx->driver == AUDIO_DRIVER_LIBAO)
+	{
+		ao_close(ctx->device);
+		ao_shutdown();
+	}
+	else
+	{
+		SDL_CloseAudioDevice(ctx->sdl_device);
+		SDL_Quit();
+	}
+
 	free(ctx);
 }

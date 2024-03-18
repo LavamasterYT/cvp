@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11
 
-LIBS = $(shell pkg-config --cflags --libs libswscale libavformat libavutil libavcodec mpv)
+LIBS = $(shell pkg-config --cflags --libs libswscale libavformat libavutil libavcodec libswresample sdl2 ao)
 LDFLAGS = -lm
 
 SRC = $(wildcard *.c)

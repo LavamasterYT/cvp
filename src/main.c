@@ -30,6 +30,7 @@ int main(int argc, char** argv)
     settings.input = NULL;
     settings.multithreading = 0;
     settings.mode = RENDERER_PALETTE;
+    settings.audio_driver = AUDIO_DRIVER_SDL;
     handle_args(argc, argv, &settings);
 
     // stop playing if we receive interrupt
@@ -65,7 +66,7 @@ int main(int argc, char** argv)
 
     audio_context* audio_ctx = NULL;
     if (settings.audio)
-        audio_ctx = audio_init(settings.input);
+        audio_ctx = audio_init(ctx->audio_ctx, settings.audio_driver);
 
     ui_context* ui_ctx = ui_init(ctx->duration, ctx->width, ctx->height + 1);
 
@@ -76,20 +77,33 @@ int main(int argc, char** argv)
     int64_t start = 0; // time when video started
     int64_t fps_timer = 0; // time when frame started
 
-    if (audio_ctx != NULL)
-        audio_playpause(audio_ctx);
+    int frame_index = 0;
 
     start = av_gettime();
 
-    while (decoder_read_frame(ctx, video_buffer) == 0)
+    while (1)
     {
         if (requested_int)
             break;
 
+        frame_index = decoder_read_frame(ctx);
+
+        if (frame_index == ctx->audio_index)
+        {
+            audio_playdata(audio_ctx, ctx->frame);
+            continue;
+        }
+        else if (frame_index < 0)
+            break;
+
         frame++;
         if (frame < frame_to_reach) // skip frames if necessary
+        {
+            decoder_discard_frame(ctx);
             continue;
+        }
 
+        decoder_decode_video(ctx, video_buffer);
         renderer_draw(window, (renderer_rgb*)video_buffer);
 
         if (ui_ctx != NULL)
@@ -110,10 +124,7 @@ int main(int argc, char** argv)
                 switch (key)
                 {
                 case ' ': // space
-                    // pause audio
-                    if (audio_ctx != NULL)
-                        audio_playpause(audio_ctx);
-
+                    ;
                     // time when pause period started
                     int64_t p_start = av_gettime();
                     while (1) // wait for interrupt or when space is pressed
@@ -134,22 +145,18 @@ int main(int argc, char** argv)
                     // add pause time to start time to offset
                     start += av_gettime() - p_start;
 
-                    // play audio again
-                    if (audio_ctx != NULL)
-                        audio_playpause(audio_ctx);
                     break;
                 }
             }
-
+            
             ms = (av_gettime() - start) / 1000; // calculate elapsed ms
             frame_to_reach = (int)(floor(ms * ctx->fps / 1000.0)) + 1; // calculate any frames needed to skip
-        } while (frame_to_reach <= frame);
+        } while (frame_to_reach == frame);
     }
 
-    // free resources
-    if (audio_ctx != NULL)
-        audio_destroy(audio_ctx);
+    audio_wait(audio_ctx);
 
+    audio_destroy(audio_ctx);
     ui_destroy(ui_ctx);
     free((void*)video_buffer);
     decoder_ctx_destroy(ctx);
