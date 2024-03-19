@@ -73,6 +73,7 @@ int main(int argc, char** argv)
     int frame = 0;
     int frame_to_reach = 0;
 
+    int64_t new_ms = 0;
     int64_t ms = 0; // elapsed ms since start of video
     int64_t start = 0; // time when video started
     int64_t fps_timer = 0; // time when frame started
@@ -119,7 +120,7 @@ int main(int argc, char** argv)
 
             if (_kbhit()) // check for keyboard input
             {
-                int key = getch();
+                int key = _getch();
 
                 switch (key)
                 {
@@ -145,6 +146,21 @@ int main(int argc, char** argv)
                     // add pause time to start time to offset
                     start += av_gettime() - p_start;
 
+                    break;
+                case 'a':;
+                    new_ms = ms - 5000;
+                    if (new_ms < 0)
+                        new_ms = 0;
+                    frame = decoder_seek(ctx, new_ms);
+                    start += (ms - new_ms) * 1000;
+                    break;
+                case 'd':;
+                    new_ms = ms + 5000;
+                    frame = decoder_seek(ctx, new_ms);
+                    start -= (new_ms - ms) * 1000;
+                    break;
+                case 'q':
+                    requested_int = 1;
                     break;
                 }
             }

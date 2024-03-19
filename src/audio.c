@@ -63,7 +63,7 @@ audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
 	ctx->resampler = swr_alloc();
 	
 	int ret  = 0;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
 	ret = swr_alloc_set_opts2(&ctx->resampler, &codec_ctx->ch_layout, AV_SAMPLE_FMT_S16, 44100, &codec_ctx->ch_layout, codec_ctx->sample_fmt, codec_ctx->sample_rate, 0, NULL);
 #else
 	ctx->resampler = swr_alloc_set_opts(ctx->resampler, codec_ctx->channel_layout, AV_SAMPLE_FMT_S16, 44100, codec_ctx->channel_layout, codec_ctx->sample_fmt, codec_ctx->sample_rate, 0, NULL);
@@ -84,7 +84,7 @@ audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
 
 	if (audio_driver == AUDIO_DRIVER_SDL)
 	{
-		if (audio_init_sdl(ctx, codec_ctx->channels))
+		if (audio_init_sdl(ctx, codec_ctx->ch_layout.nb_channels))
 		{
 			av_frame_free(&ctx->resampled_frame);
 			swr_free(&ctx->resampler);
@@ -94,7 +94,7 @@ audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
 	}
 	else
 	{
-		if (audio_init_libao(ctx, codec_ctx->channels))
+		if (audio_init_libao(ctx, codec_ctx->ch_layout.nb_channels))
 		{
 			av_frame_free(&ctx->resampled_frame);
 			swr_free(&ctx->resampler);
@@ -111,7 +111,7 @@ void audio_playdata(audio_context* ctx, AVFrame* data)
 	if (ctx == NULL)
 		return;
 
-	int dst_samples = data->channels * av_rescale_rnd(swr_get_delay(ctx->resampler, data->sample_rate) + data->nb_samples, 44100, data->sample_rate, AV_ROUND_UP);
+	int dst_samples = data->ch_layout.nb_channels * av_rescale_rnd(swr_get_delay(ctx->resampler, data->sample_rate) + data->nb_samples, 44100, data->sample_rate, AV_ROUND_UP);
 	int ret = av_samples_alloc(&ctx->audio_buffer, NULL, 1, dst_samples, AV_SAMPLE_FMT_S16, 1);
 
 	if (ret < 0)
@@ -123,7 +123,7 @@ void audio_playdata(audio_context* ctx, AVFrame* data)
 		return;
 	}
 
-	dst_samples = data->channels * swr_convert(ctx->resampler, &ctx->audio_buffer, dst_samples, (const uint8_t**)data->data, data->nb_samples);
+	dst_samples = data->ch_layout.nb_channels * swr_convert(ctx->resampler, &ctx->audio_buffer, dst_samples, (const uint8_t**)data->data, data->nb_samples);
 	ret = av_samples_fill_arrays(ctx->resampled_frame->data, ctx->resampled_frame->linesize, ctx->audio_buffer, 1, dst_samples, AV_SAMPLE_FMT_S16, 1);
 
 	if (ret < 0)

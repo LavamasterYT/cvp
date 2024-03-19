@@ -174,7 +174,7 @@ void decoder_discard_frame(decoder_context* ctx)
 void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer)
 {
 	if (av_image_fill_arrays(ctx->rgb_frame->data, ctx->rgb_frame->linesize, (uint8_t*)buffer, AV_PIX_FMT_RGB24, ctx->width, ctx->height, 1) < 0)
-		return -1; // error on image fill arrays
+		return; // error on image fill arrays
 
 	// scale image down
 	sws_scale(ctx->sws_ctx, (const uint8_t* const*)ctx->frame->data, ctx->frame->linesize, 0, ctx->video_ctx->height, ctx->rgb_frame->data, ctx->rgb_frame->linesize);
@@ -188,6 +188,22 @@ void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer)
 
 	av_frame_unref(ctx->frame);
 	av_frame_unref(ctx->rgb_frame);
+}
+
+int64_t decoder_seek(decoder_context *ctx, int64_t ms)
+{
+	double fps = av_q2d(ctx->format_ctx->streams[ctx->video_index]->r_frame_rate);
+	int64_t frame = (int64_t)(ms * fps / 1000.0);
+
+	double sec = frame / fps;
+	int64_t ts = ctx->format_ctx->streams[ctx->video_index]->start_time;
+	double tb = av_q2d(ctx->format_ctx->streams[ctx->video_index]->time_base);
+	ts += (int64_t)(sec / tb + 0.5);
+
+	av_seek_frame(ctx->format_ctx, ctx->video_index, ts, AVSEEK_FLAG_BACKWARD);
+	avcodec_flush_buffers(ctx->video_ctx);
+
+	return frame;
 }
 
 void decoder_ctx_destroy(decoder_context* ctx)

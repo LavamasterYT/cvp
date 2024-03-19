@@ -10,8 +10,8 @@ typedef struct decoder_context
 	AVCodecContext* video_ctx; // codec context
 	AVCodecContext* audio_ctx; // codec context
 	struct SwsContext* sws_ctx; // scaling context
-	AVCodec* video_codec; // video codec
-	AVCodec* audio_codec; // video codec
+	const AVCodec* video_codec; // video codec
+	const AVCodec* audio_codec; // video codec
 	AVFrame* frame; // original video frame
 	AVFrame* rgb_frame; // downscaled video frame
 	AVPacket* packet; // video packet
@@ -66,6 +66,8 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 * @return 0 if successful reading the frame, otherwise encountered EOF or other internal error.
 */
 int decoder_read_frame(decoder_context* ctx);
+
+int64_t decoder_seek(decoder_context* ctx, int64_t ms);
 
 void decoder_discard_frame(decoder_context* ctx);
 
