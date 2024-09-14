@@ -56,7 +56,8 @@ int main(int argc, char** argv)
     }
 
     decoder_rgb* video_buffer = decoder_alloc_rgb(ctx);
-    if (video_buffer == NULL)
+    decoder_rgb* last_frame = decoder_alloc_rgb(ctx);
+    if (video_buffer == NULL || last_frame == NULL)
     {
         renderer_destroy(window);
         printf("cvp: unable to allocate memory\n");
@@ -105,12 +106,26 @@ int main(int argc, char** argv)
         }
 
         decoder_decode_video(ctx, video_buffer);
-        renderer_draw(window, (renderer_rgb*)video_buffer);
+        renderer_draw(window, (renderer_rgb*)video_buffer, (renderer_rgb*)last_frame);
 
         if (ui_ctx != NULL)
             ui_draw(ui_ctx, ms);
 
-        show_fps((av_gettime() - fps_timer) / 1000);
+        if (settings.audio)
+        {
+            // Synchronize audio and video timing
+            int64_t audio_pts = (44100 - SDL_GetQueuedAudioSize(audio_ctx->sdl_device) / 
+                                (2 * ctx->audio_ctx->ch_layout.nb_channels)) * 1000 / 44100; 
+            int64_t video_pts = ms; // elapsed time for video
+
+            // Adjust audio/video sync
+            if (audio_pts > video_pts + 100) {
+                // Audio is ahead, delay video or skip video frames
+                SDL_Delay((audio_pts - video_pts) / 1000);
+            }
+        }
+
+        show_fps((av_gettime() - fps_timer) / 1000, window->width, window->height);
         fps_timer = av_gettime(); // reset frame timer
 
         do
@@ -126,6 +141,8 @@ int main(int argc, char** argv)
                 {
                 case ' ': // space
                     ;
+                    if (settings.audio)
+                        SDL_ClearQueuedAudio(audio_ctx->sdl_device);
                     // time when pause period started
                     int64_t p_start = av_gettime();
                     while (1) // wait for interrupt or when space is pressed
@@ -135,8 +152,14 @@ int main(int argc, char** argv)
 
                         if (_kbhit())
                         {
-                            if (_getch() == ' ')
+                            key = _getch();
+                            if (key == ' ')
                             {
+                                break;
+                            }
+                            else if (key == 'q')
+                            {
+                                requested_int = 1;
                                 break;
                             }
                         }
@@ -171,7 +194,6 @@ int main(int argc, char** argv)
     }
 
     audio_wait(audio_ctx);
-
     audio_destroy(audio_ctx);
     ui_destroy(ui_ctx);
     free((void*)video_buffer);

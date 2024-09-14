@@ -123,6 +123,82 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 	free(str_buf);
 }
 
+void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame)
+{
+	size_t max_str_size = window->width * window->height * 20;
+	char* str_buf = (char*)malloc(max_str_size);
+
+	if (str_buf == NULL)
+		return;
+
+	size_t pos = 0;
+	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
+
+	renderer_rgb og_top;
+	memset(&og_top, 0, sizeof(renderer_rgb));
+
+	renderer_rgb og_bottom;
+	memset(&og_bottom, 0, sizeof(renderer_rgb));
+
+	// Loop through the buffer and add correct ansi sequence
+	for (int y = 0; y < window->height; y += 2)
+	{
+		pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
+		if (pos >= max_str_size)
+		{
+			puts(str_buf);
+			pos = 0;
+		}
+
+		for (int x = 0; x < window->width; x++)
+		{
+			renderer_rgb top = buffer[x + window->width * y];
+			renderer_rgb bottom = buffer[x + window->width * (y + 1)];
+
+			// Skip unchanged pixels
+            if (renderer_compare(top, last_frame[x + window->width * y]) &&
+                renderer_compare(bottom, last_frame[x + window->width * (y + 1)]))
+            {
+                pos += snprintf(str_buf + pos, max_str_size - pos, ESC "[C");
+            }
+			else
+			{
+				// If top and bottom haven't changed, just print the pixel
+				if (renderer_compare(top, og_top) && renderer_compare(bottom, og_bottom))
+					pos += snprintf(str_buf + pos, max_str_size - pos, RENDERER_PIXEL_CHAR);
+				else if (renderer_compare(top, og_top))
+					pos += snprintf(str_buf + pos, max_str_size - pos,
+									CSI "48;2;%d;%d;%dm" RENDERER_PIXEL_CHAR,
+									bottom.r, bottom.g, bottom.b);
+				else if (renderer_compare(bottom, og_bottom))
+					pos += snprintf(str_buf + pos, max_str_size - pos,
+									CSI "38;2;%d;%d;%dm" RENDERER_PIXEL_CHAR,
+									top.r, top.g, top.b);
+				else
+					pos += snprintf(str_buf + pos, max_str_size - pos,
+									CSI "38;2;%d;%d;%dm" CSI "48;2;%d;%d;%dm" RENDERER_PIXEL_CHAR,
+									top.r, top.g, top.b, bottom.r, bottom.g, bottom.b);
+
+				memcpy(&og_top, &top, sizeof(renderer_rgb));
+				memcpy(&og_bottom, &bottom, sizeof(renderer_rgb));
+			}
+
+			// Check if buffer is full and reset
+			if (pos >= max_str_size)
+			{
+				puts(str_buf);
+				pos = 0;
+			}
+		}
+	}
+
+	memcpy(last_frame, buffer, window->width * window->height * sizeof(renderer_rgb));
+
+    puts(str_buf);
+    free(str_buf);
+}
+
+
 void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 {
 	size_t max_str_size = window->width * window->height * 25;
@@ -270,16 +346,20 @@ renderer_term_window* renderer_init(int mode)
 	return window;
 }
 
-void renderer_draw(renderer_term_window* window, renderer_rgb* buffer)
+void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame)
 {
-	// determine correct mode
-	if (window->mode == RENDERER_FULL_COLOR)
+	switch (window->mode)
 	{
-		renderer_draw_256(window, buffer);
-	}
-	else
-	{
-		renderer_draw_palette(window, buffer);
+		case RENDERER_FULL_COLOR:
+			renderer_draw_256(window, buffer);
+			break;
+		case RENDERER_KITTY:
+			renderer_draw_kitty(window, buffer, last_frame);
+			break;
+		case RENDERER_PALETTE:
+		default:
+			renderer_draw_palette(window, buffer);
+			break;
 	}
 }
 

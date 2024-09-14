@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O3 $(shell pkg-config --cflags libswscale libavformat libavutil libavcodec libswresample sdl2 ao)
 
 LIBS = $(shell pkg-config --libs libswscale libavformat libavutil libavcodec libswresample sdl2 ao)
-LDFLAGS = -lm
+LDFLAGS = -lm -lcrypto
 
 SRC = $(wildcard src/*.c)
 OBJ = $(SRC:.c=.o)

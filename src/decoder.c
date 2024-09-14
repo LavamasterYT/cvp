@@ -106,9 +106,21 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 		if (avcodec_open2(ctx->audio_ctx, ctx->audio_codec, NULL))
 			ctx->audio_index = -1; // failed opening codec
 
+	ctx->fixed_width = 0;
+	ctx->fixed_height = 0;
+
+	float aspect_ratio = (float)ctx->video_ctx->width / (float)ctx->video_ctx->height;
+
+	if (aspect_ratio > 1) // width bigger than height
+	{
+		float scale = (float)ctx->video_ctx->width / (float)ctx->width;
+		ctx->fixed_width = ctx->width;
+		ctx->fixed_height = (float)ctx->video_ctx->height / scale;
+	}
+
 	ctx->sws_ctx = sws_getContext(
 		ctx->video_ctx->width, ctx->video_ctx->height, ctx->video_ctx->pix_fmt,
-		width, height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+		ctx->fixed_width, ctx->fixed_height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
 	if (ctx->sws_ctx == NULL)
 		return -1; // failed allocating scaling context
 
@@ -124,7 +136,7 @@ decoder_rgb* decoder_alloc_rgb(decoder_context* ctx)
 		ctx->height < 1)
 		return NULL;
 
-	return (decoder_rgb*)malloc(sizeof(decoder_rgb) * 3 * (ctx->width * ctx->height));
+	return (decoder_rgb*)malloc(3 * ctx->width * ctx->height);
 }
 
 int decoder_read_frame(decoder_context* ctx)
@@ -173,17 +185,19 @@ void decoder_discard_frame(decoder_context* ctx)
 
 void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer)
 {
-	if (av_image_fill_arrays(ctx->rgb_frame->data, ctx->rgb_frame->linesize, (uint8_t*)buffer, AV_PIX_FMT_RGB24, ctx->width, ctx->height, 1) < 0)
+	if (av_image_fill_arrays(ctx->rgb_frame->data, ctx->rgb_frame->linesize, (uint8_t*)buffer, AV_PIX_FMT_RGB24, ctx->fixed_width, ctx->fixed_height, 1) < 0)
 		return; // error on image fill arrays
 
 	// scale image down
 	sws_scale(ctx->sws_ctx, (const uint8_t* const*)ctx->frame->data, ctx->frame->linesize, 0, ctx->video_ctx->height, ctx->rgb_frame->data, ctx->rgb_frame->linesize);
 
+	int offset = (ctx->height - ctx->fixed_height) / 2;
+
 	// copy pixels to buffer
-	for (int y = 0; y < ctx->height; y++)
+	for (int y = 0; y < ctx->fixed_height; y++)
 	{
 		int index = y * ctx->rgb_frame->linesize[0];
-		memcpy(&buffer[ctx->width * y], &ctx->rgb_frame->data[0][index], ctx->width * sizeof(decoder_rgb));
+		memcpy(&buffer[ctx->fixed_width * (y)], &ctx->rgb_frame->data[0][index], ctx->fixed_width * sizeof(decoder_rgb));
 	}
 
 	av_frame_unref(ctx->frame);

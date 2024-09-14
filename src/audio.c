@@ -169,6 +169,9 @@ void audio_wait(audio_context* ctx)
 
 void audio_destroy(audio_context* ctx)
 {
+	if (ctx == NULL)
+		return;
+
 	av_frame_free(&ctx->resampled_frame);
 	swr_free(&ctx->resampler);
 

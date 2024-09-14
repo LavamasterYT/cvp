@@ -48,6 +48,7 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                     if (argv[i][1] == '-')
                     {
                         if (strcmp(argv[i], "--full-color") == 0) settings->mode = RENDERER_FULL_COLOR;
+                        else if (strcmp(argv[i], "--kitty") == 0) settings->mode = RENDERER_KITTY;
                         else if (strcmp(argv[i], "--multithreading") == 0) settings->multithreading = 1;
                         else if (strcmp(argv[i], "--audio") == 0) settings->audio = 1;
                         else if (strcmp(argv[i], "--libao") == 0) settings->audio_driver = AUDIO_DRIVER_LIBAO;
@@ -73,6 +74,7 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                         for (size_t j = 1; j < strlen(argv[i]); j++)
                         {
                             if (argv[i][j] == 'f') settings->mode = RENDERER_FULL_COLOR;
+                            else if (argv[i][j] == 'k') settings->mode = RENDERER_KITTY;
                             else if (argv[i][j] == 't') settings->multithreading = 1;
                             else if (argv[i][j] == 'a') settings->audio = 1;
                             else if (argv[i][j] == 'l') settings->audio_driver = AUDIO_DRIVER_LIBAO;
@@ -120,11 +122,11 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
     }
 }
 
-void show_fps(int64_t fps)
+void show_fps(int64_t fps, int64_t width, int64_t height)
 {
     if (fps == 0)
         fps = 1;
-    printf("\x1B]0;%" PRId64 " FPS\x1B\x5C", 1000 / fps );
+    printf("\x1B]0;%" PRId64 "x%" PRId64 " %" PRId64 " FPS\x1B\x5C", width, height, 1000 / fps);
 }
 
 #if defined(__unix__) || defined(__APPLE__)

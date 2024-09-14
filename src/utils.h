@@ -13,7 +13,7 @@ typedef struct cvp_settings
 } cvp_settings;
 
 void handle_args(int argc, char** argv, cvp_settings* settings);
-void show_fps(int64_t fps);
+void show_fps(int64_t fps, int64_t width, int64_t height);
 
 #if defined(__unix__) || defined(__APPLE__)
 int kbhit(void);

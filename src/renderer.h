@@ -8,6 +8,7 @@
 
 #define RENDERER_FULL_COLOR 0
 #define RENDERER_PALETTE 1
+#define RENDERER_KITTY 2
 
 #define renderer_compare(x, y) ((x.r == y.r) && (x.g == y.g) && (x.b == y.b))
 #define renderer_rgb_distance(x, y) ((x.r - y.r) * (x.r - y.r)) + ((x.g - y.g) * (x.g - y.g)) + ((x.b - y.b) * (x.b - y.b))
@@ -49,7 +50,7 @@ renderer_term_window* renderer_init(int mode);
 * @param window	 Pointer to existing terminal window instance
 * @param buffer	 Data to draw to the terminal
 */
-void renderer_draw(renderer_term_window* window, renderer_rgb* buffer);
+void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame);
 
 /**
 * Destroys and frees resources
