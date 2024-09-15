@@ -106,26 +106,23 @@ int main(int argc, char** argv)
         }
 
         decoder_decode_video(ctx, video_buffer);
-        renderer_draw(window, (renderer_rgb*)video_buffer, (renderer_rgb*)last_frame);
+        renderer_draw(window, (renderer_rgb*)video_buffer, (renderer_rgb*)last_frame, ctx->width, ctx->height);
 
         if (ui_ctx != NULL)
             ui_draw(ui_ctx, ms);
 
         if (settings.audio)
         {
-            // Synchronize audio and video timing
             int64_t audio_pts = (44100 - SDL_GetQueuedAudioSize(audio_ctx->sdl_device) / 
                                 (2 * ctx->audio_ctx->ch_layout.nb_channels)) * 1000 / 44100; 
-            int64_t video_pts = ms; // elapsed time for video
+            int64_t video_pts = ms;
 
-            // Adjust audio/video sync
             if (audio_pts > video_pts + 100) {
-                // Audio is ahead, delay video or skip video frames
-                SDL_Delay((audio_pts - video_pts) / 1000);
+                SDL_ClearQueuedAudio(audio_ctx->sdl_device);
             }
         }
 
-        show_fps((av_gettime() - fps_timer) / 1000, window->width, window->height);
+        show_fps((av_gettime() - fps_timer) / 1000, ctx->width, ctx->height);
         fps_timer = av_gettime(); // reset frame timer
 
         do

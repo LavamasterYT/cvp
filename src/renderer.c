@@ -60,8 +60,23 @@ void renderer_clear_palette(renderer_term_window* window)
 			printf(RENDERER_PIXEL_CHAR);
 }
 
-void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
+void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
 {
+	int offset = (window->height - height) / 2;
+
+	renderer_rgb* fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
+
+	memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
+
+	for (int y = offset; y < height + offset; y++)
+	{
+		for (int x = 0; x < window->width; x++)
+		{
+			if ((x + window->width * y) < (window->width * window->height * sizeof(renderer_rgb)))
+				fixed_buffer[x + window->width * y] = buffer[x + width * (y - offset)];
+		}
+	}
+
 	size_t max_str_size = window->width * window->height * 20;
 	char* str_buf = (char*)malloc(max_str_size);
 
@@ -76,21 +91,14 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 
 	renderer_rgb og_bottom;
 	memset(&og_bottom, 0, sizeof(renderer_rgb));
-
+	
 	// Loop through the buffer and add correct ansi sequence
 	for (int y = 0; y < window->height; y += 2)
 	{
-		//pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
-		if (pos >= max_str_size)
-		{
-			puts(str_buf);
-			pos = 0;
-		}
-
 		for (int x = 0; x < window->width; x++)
 		{
-			renderer_rgb top = buffer[x + window->width * y];
-			renderer_rgb bottom = buffer[x + window->width * (y + 1)];
+			renderer_rgb top = fixed_buffer[x + window->width * y];
+			renderer_rgb bottom = fixed_buffer[x + window->width * (y + 1)];
 
 			if (renderer_compare(top, og_top) && renderer_compare(bottom, og_bottom))
 				pos += snprintf(str_buf + pos, max_str_size - pos, RENDERER_PIXEL_CHAR);
@@ -107,13 +115,6 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 					CSI "38;2;%d;%d;%dm" CSI "48;2;%d;%d;%dm" RENDERER_PIXEL_CHAR,
 					top.r, top.g, top.b, bottom.r, bottom.g, bottom.b);
 
-			// Check if buffer is full and reset
-			if (pos >= max_str_size)
-			{
-				puts(str_buf);
-				pos = 0;
-			}
-
 			memcpy(&og_top, &top, sizeof(renderer_rgb));
 			memcpy(&og_bottom, &bottom, sizeof(renderer_rgb));
 		}
@@ -121,6 +122,7 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer)
 
 	puts(str_buf);
 	free(str_buf);
+	free(fixed_buffer);
 }
 
 void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame)
@@ -322,6 +324,7 @@ renderer_term_window* renderer_init(int mode)
 
 	window->width = size.ws_col;
 	window->height = size.ws_row * 2;
+
 #else
 	return NULL;
 #endif
@@ -346,12 +349,12 @@ renderer_term_window* renderer_init(int mode)
 	return window;
 }
 
-void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame)
+void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame, int width, int height)
 {
 	switch (window->mode)
 	{
 		case RENDERER_FULL_COLOR:
-			renderer_draw_256(window, buffer);
+			renderer_draw_256(window, buffer, width, height);
 			break;
 		case RENDERER_KITTY:
 			renderer_draw_kitty(window, buffer, last_frame);

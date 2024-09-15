@@ -17,10 +17,8 @@ typedef struct decoder_context
 	AVPacket* packet; // video packet
 	int video_index; // video stream index
 	int audio_index; // audio stream index
-	int fixed_width; // width of video scaled down while retaining aspect ratio
-	int fixed_height; // height of video scaled down while retaining aspect ratio
-	int width; // output width to scale down/up to
-	int height; // output height to scale down/up to
+	int width; // output width to scaled down/up to
+	int height; // output height to scaled down/up to
 	int duration; // length of video (in ms)
 	double fps; // self-explanitory
 } decoder_context;

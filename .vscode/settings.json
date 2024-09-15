@@ -1,5 +1,11 @@
 {
     "files.associations": {
         "stdlib.h": "c"
+    },
+    "cmake.debugConfig": {
+        "args": [
+            "-af",
+            "/Users/josem/Downloads/OshiNoKo-OP1-NCBD1080.webm"
+        ]
     }
 }

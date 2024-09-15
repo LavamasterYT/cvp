@@ -50,7 +50,7 @@ renderer_term_window* renderer_init(int mode);
 * @param window	 Pointer to existing terminal window instance
 * @param buffer	 Data to draw to the terminal
 */
-void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame);
+void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame, int width, int height);
 
 /**
 * Destroys and frees resources
