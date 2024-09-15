@@ -197,7 +197,7 @@ void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer)
 	for (int y = 0; y < ctx->fixed_height; y++)
 	{
 		int index = y * ctx->rgb_frame->linesize[0];
-		memcpy(&buffer[ctx->fixed_width * (y)], &ctx->rgb_frame->data[0][index], ctx->fixed_width * sizeof(decoder_rgb));
+		memcpy(&buffer[ctx->fixed_width * (y + offset)], &ctx->rgb_frame->data[0][index], ctx->fixed_width * sizeof(decoder_rgb));
 	}
 
 	av_frame_unref(ctx->frame);
