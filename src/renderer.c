@@ -62,27 +62,43 @@ void renderer_clear_palette(renderer_term_window* window)
 
 void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
 {
-	int offset = (window->height - height) / 2;
-
-	renderer_rgb* fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
-
-	memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
-
-	for (int y = offset; y < height + offset; y++)
-	{
-		for (int x = 0; x < window->width; x++)
-		{
-			if ((x + window->width * y) < (window->width * window->height * sizeof(renderer_rgb)))
-				fixed_buffer[x + window->width * y] = buffer[x + width * (y - offset)];
-		}
-	}
-
 	size_t max_str_size = window->width * window->height * 20;
 	char* str_buf = (char*)malloc(max_str_size);
+	renderer_rgb* fixed_buffer = NULL;
 
 	if (str_buf == NULL)
 		return;
 
+	if (width == window->width)
+	{
+		int offset = (window->height - height) / 2;
+
+		fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
+		memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
+
+		for (int y = offset; y < height + offset; y++)
+		{
+			for (int x = 0; x < window->width; x++)
+			{
+				fixed_buffer[x + window->width * y] = buffer[x + width * (y - offset)];
+			}
+		}
+	}
+	else if (height == window->height)
+	{
+		int offset = (window->width - width) / 2;
+
+		fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
+		memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
+
+		for (int y = 0; y < window->height; y++)
+		{
+			for (int x = offset; x < width + offset; x++)
+			{
+				fixed_buffer[x + window->width * y] = buffer[(x - offset) + width * y];
+			}
+		}
+	}
 	size_t pos = 0;
 	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
 

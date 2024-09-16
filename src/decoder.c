@@ -85,17 +85,21 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 			ctx->audio_index = -1; // failed filling codec context
 	}
 
-	if (use_multithreading)
+	if (ctx->video_ctx->codec_id == AV_CODEC_ID_VP9)
 	{
-		// attempt to use multithreading
-		ctx->video_ctx->thread_count = 0;
-		if (ctx->video_codec->capabilities & AV_CODEC_CAP_FRAME_THREADS)
-			ctx->video_ctx->thread_type = FF_THREAD_FRAME;
-		else if (ctx->video_codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
-			ctx->video_ctx->thread_type = FF_THREAD_SLICE;
-		else
-			ctx->video_ctx->thread_count = 1;
+		// For some reason VP9 is sensitive to this
+		ctx->video_ctx->thread_count = 1;
 	}
+	else
+	{
+		// Else set automatically by FFmpeg
+		ctx->video_ctx->thread_count = 0;
+	}
+
+	if (ctx->video_codec->capabilities & AV_CODEC_CAP_FRAME_THREADS)
+		ctx->video_ctx->thread_type = FF_THREAD_FRAME;
+	else if (ctx->video_codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
+		ctx->video_ctx->thread_type = FF_THREAD_SLICE;
 
 	if (avcodec_open2(ctx->video_ctx, ctx->video_codec, NULL))
 		return -1; // failed opening codec
@@ -104,14 +108,25 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 		if (avcodec_open2(ctx->audio_ctx, ctx->audio_codec, NULL))
 			ctx->audio_index = -1; // failed opening codec
 
-	float aspect_ratio = (float)ctx->video_ctx->width / (float)ctx->video_ctx->height;
+	float video_aspect_ratio = (float)ctx->video_ctx->width / (float)ctx->video_ctx->height;
+	float target_aspect_ratio = (float)width / (float)height;
 
-	if (aspect_ratio > 1) // width bigger than height
+	if (target_aspect_ratio > video_aspect_ratio)
+	{
+		float scale = (float)ctx->video_ctx->height / (float)height;
+		ctx->height = height;
+		ctx->width = (float)ctx->video_ctx->width / scale;
+	}
+	else
 	{
 		float scale = (float)ctx->video_ctx->width / (float)width;
 		ctx->width = width;
 		ctx->height = (float)ctx->video_ctx->height / scale;
 	}
+
+	//120x58 3840x2160
+
+	// 2.06 1.77
 
 	ctx->sws_ctx = sws_getContext(
 		ctx->video_ctx->width, ctx->video_ctx->height, ctx->video_ctx->pix_fmt,

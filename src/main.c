@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     if (settings.audio)
         audio_ctx = audio_init(ctx->audio_ctx, settings.audio_driver);
 
-    ui_context* ui_ctx = ui_init(ctx->duration, ctx->width, ctx->height + 1);
+    ui_context* ui_ctx = ui_init(ctx->duration, window->width, window->height + 1);
 
     int frame = 0;
     int frame_to_reach = 0;
