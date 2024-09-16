@@ -8,6 +8,7 @@ typedef struct cvp_settings
     int mode; // Drawing mode
     int audio; // Play audio
     int multithreading; // Use multithreading
+    int grayscale;
     char* input; // File input
     int audio_driver; // audio driver to use
 } cvp_settings;

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Project name
-project(cvp C)
+project(cvp)
 
 # Set the C standard
 set(CMAKE_C_STANDARD 11)
@@ -35,7 +35,7 @@ else()
 endif()
 
 # Source files
-file(GLOB SRC "src/*.c")
+file(GLOB SRC "src/*.c" "src/*.cpp")
 
 # Add the executable
 add_executable(cvp ${SRC})

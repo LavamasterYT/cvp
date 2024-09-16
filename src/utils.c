@@ -74,6 +74,7 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                         for (size_t j = 1; j < strlen(argv[i]); j++)
                         {
                             if (argv[i][j] == 'f') settings->mode = RENDERER_FULL_COLOR;
+                            else if (argv[i][j] == 'g') settings->mode = RENDERER_ASCII;
                             else if (argv[i][j] == 'k') settings->mode = RENDERER_KITTY;
                             else if (argv[i][j] == 't') settings->multithreading = 1;
                             else if (argv[i][j] == 'a') settings->audio = 1;

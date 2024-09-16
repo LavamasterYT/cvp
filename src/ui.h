@@ -14,6 +14,7 @@ typedef struct ui_context
 
 ui_context* ui_init(int duration, int width, int height);
 void ui_draw(ui_context* ctx, int ms);
+void ui_pause(ui_context* ctx, int ms);
 void ui_destroy(ui_context* ctx);
 
 #endif // UI_H

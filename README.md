@@ -6,12 +6,12 @@
 ## Download
 
 Binaries should be provided "hopefully" for the latest release.
-I can't guarantee that the binaries will run successfully, so it is advise that you build this yourself.
+I can't guarantee that the binaries will run successfully, so I recommend that you build this yourself.
 
 ## Building
 Instructions basically follow this order:
-- Download development tools (gcc, make, pkg-config, Visual Studio, etc)
-- Install necessary libraries (FFmpeg, libavcodec, libavformat, libavutil, libswscale, libmpv)
+- Download development tools (gcc, make, cmake, Visual Studio, etc)
+- Install necessary libraries (FFmpeg, libavcodec, libavformat, libavutil, libswscale, sdl2)
 - Build the source files inside the src directory and link with libraries above
 
 ### Debian/Ubuntu
@@ -32,7 +32,7 @@ make
 Other distros are going to be different, but here is the gist:
 - Install gcc, make, and pkg-config
 - Install the necessary libraries (libavcodec, libavformat, libavutil, libswscale, libmpv, mpv, ffmpeg)
-- Build using make
+- Build using Cmake
 
 ### macOS
 Install the Xcode command line tools:
@@ -41,7 +41,7 @@ xcode-select --install
 ```
 Install the needed dependencies:
 ```
-brew install ffmpeg mpv
+brew install ffmpeg sdl2 cmake
 ```
 Finally, build using make:
 ```

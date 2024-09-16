@@ -16,6 +16,9 @@ src/cvp.exe
 # CMake build dir
 build/
 
+# VCpkg
+vcpkg
+
 # CLion
 .idea/
 cmake-build-debug/

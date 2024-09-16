@@ -124,13 +124,9 @@ int decoder_open_input(decoder_context* ctx, const char* file, int width, int he
 		ctx->height = (float)ctx->video_ctx->height / scale;
 	}
 
-	//120x58 3840x2160
-
-	// 2.06 1.77
-
 	ctx->sws_ctx = sws_getContext(
 		ctx->video_ctx->width, ctx->video_ctx->height, ctx->video_ctx->pix_fmt,
-		ctx->width, ctx->height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+		ctx->width, ctx->height, !ctx->grayscale ? AV_PIX_FMT_RGB24 : AV_PIX_FMT_GRAY8, SWS_BILINEAR, NULL, NULL, NULL);
 	if (ctx->sws_ctx == NULL)
 		return -1; // failed allocating scaling context
 
@@ -203,11 +199,25 @@ void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer)
 	// scale image down
 	sws_scale(ctx->sws_ctx, (const uint8_t* const*)ctx->frame->data, ctx->frame->linesize, 0, ctx->video_ctx->height, ctx->rgb_frame->data, ctx->rgb_frame->linesize);
 
-	// copy pixels to buffer
-	for (int y = 0; y < ctx->height; y++)
+	if (!ctx->grayscale)
 	{
-		int index = y * ctx->rgb_frame->linesize[0];
-		memcpy(&buffer[ctx->width * y], &ctx->rgb_frame->data[0][index], ctx->width * sizeof(decoder_rgb));
+		// copy pixels to buffer
+		for (int y = 0; y < ctx->height; y++)
+		{
+			int index = y * ctx->rgb_frame->linesize[0];
+			memcpy(&buffer[ctx->width * y], &ctx->rgb_frame->data[0][index], ctx->width * sizeof(decoder_rgb));
+		}
+	}
+	else
+	{
+		// copy pixels to buffer
+		for (int y = 0; y < ctx->height; y++)
+		{
+			for (int x = 0; x < ctx->width; x++)
+			{
+				buffer[x + ctx->width * y].r = ctx->rgb_frame->data[0][x + ctx->rgb_frame->linesize[0] * y];
+			}
+		}
 	}
 
 	av_frame_unref(ctx->frame);

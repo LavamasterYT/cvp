@@ -21,6 +21,7 @@ typedef struct decoder_context
 	int height; // output height to scaled down/up to
 	int duration; // length of video (in ms)
 	double fps; // self-explanitory
+	int grayscale;
 } decoder_context;
 
 typedef struct decoder_rgb

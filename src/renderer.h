@@ -9,6 +9,7 @@
 #define RENDERER_FULL_COLOR 0
 #define RENDERER_PALETTE 1
 #define RENDERER_KITTY 2
+#define RENDERER_ASCII 3
 
 #define renderer_compare(x, y) ((x.r == y.r) && (x.g == y.g) && (x.b == y.b))
 #define renderer_rgb_distance(x, y) ((x.r - y.r) * (x.r - y.r)) + ((x.g - y.g) * (x.g - y.g)) + ((x.b - y.b) * (x.b - y.b))

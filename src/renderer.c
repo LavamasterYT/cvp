@@ -60,27 +60,27 @@ void renderer_clear_palette(renderer_term_window* window)
 			printf(RENDERER_PIXEL_CHAR);
 }
 
-void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
+void renderer_set_scale(renderer_term_window* window, int width, int height, renderer_rgb* src, renderer_rgb* src_cp, renderer_rgb** dst, renderer_rgb** dst_cp)
 {
-	size_t max_str_size = window->width * window->height * 20;
-	char* str_buf = (char*)malloc(max_str_size);
-	renderer_rgb* fixed_buffer = NULL;
+	(*dst) = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
+	if (dst_cp != NULL)
+		(*dst_cp) = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
 
-	if (str_buf == NULL)
-		return;
+	memset((*dst), 0, sizeof(renderer_rgb) * window->width * window->height);
+	if (dst_cp != NULL)
+		memset((*dst_cp), 0, sizeof(renderer_rgb) * window->width * window->height);
 
 	if (width == window->width)
 	{
 		int offset = (window->height - height) / 2;
 
-		fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
-		memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
-
 		for (int y = offset; y < height + offset; y++)
 		{
 			for (int x = 0; x < window->width; x++)
 			{
-				fixed_buffer[x + window->width * y] = buffer[x + width * (y - offset)];
+				(*dst)[x + window->width * y] = src[x + width * (y - offset)];
+				if (dst_cp != NULL)
+					(*dst_cp)[x + window->width * y] = src_cp[x + width * (y - offset)];
 			}
 		}
 	}
@@ -88,24 +88,32 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int w
 	{
 		int offset = (window->width - width) / 2;
 
-		fixed_buffer = (renderer_rgb*)malloc(sizeof(renderer_rgb) * window->width * window->height);
-		memset(fixed_buffer, 0, sizeof(renderer_rgb) * window->width * window->height);
-
 		for (int y = 0; y < window->height; y++)
 		{
 			for (int x = offset; x < width + offset; x++)
 			{
-				fixed_buffer[x + window->width * y] = buffer[(x - offset) + width * y];
+				(*dst)[x + window->width * y] = src[(x - offset) + width * y];
+				if (dst_cp != NULL)
+					(*dst_cp)[x + window->width * y] = src_cp[(x - offset) + width * y];
 			}
 		}
 	}
-	size_t pos = 0;
-	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
+}
+
+void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
+{
+	size_t max_str_size = window->width * window->height * 20;
+	char* str_buf = (char*)malloc(max_str_size);
+	renderer_rgb* fixed_buffer = NULL;
+
+	renderer_set_scale(window, width, height, buffer, NULL, &fixed_buffer, NULL);
+
+	size_t pos = snprintf(str_buf, max_str_size, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
 
 	renderer_rgb og_top;
-	memset(&og_top, 0, sizeof(renderer_rgb));
-
 	renderer_rgb og_bottom;
+
+	memset(&og_top, 0, sizeof(renderer_rgb));
 	memset(&og_bottom, 0, sizeof(renderer_rgb));
 	
 	// Loop through the buffer and add correct ansi sequence
@@ -141,21 +149,21 @@ void renderer_draw_256(renderer_term_window* window, renderer_rgb* buffer, int w
 	free(fixed_buffer);
 }
 
-void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame)
+void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame, int width, int height)
 {
 	size_t max_str_size = window->width * window->height * 20;
 	char* str_buf = (char*)malloc(max_str_size);
+	renderer_rgb* fixed_buffer = NULL;
+	renderer_rgb* fixed_last_buffer = NULL;
 
-	if (str_buf == NULL)
-		return;
+	renderer_set_scale(window, width, height, buffer, last_frame, &fixed_buffer, &fixed_last_buffer);
 
-	size_t pos = 0;
-	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
+	size_t pos = snprintf(str_buf, max_str_size, CSI "0;0H" CSI "48;2;0;0;0m" CSI "38;2;0;0;0m");
 
 	renderer_rgb og_top;
-	memset(&og_top, 0, sizeof(renderer_rgb));
-
 	renderer_rgb og_bottom;
+
+	memset(&og_top, 0, sizeof(renderer_rgb));
 	memset(&og_bottom, 0, sizeof(renderer_rgb));
 
 	// Loop through the buffer and add correct ansi sequence
@@ -170,12 +178,12 @@ void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, ren
 
 		for (int x = 0; x < window->width; x++)
 		{
-			renderer_rgb top = buffer[x + window->width * y];
-			renderer_rgb bottom = buffer[x + window->width * (y + 1)];
+			renderer_rgb top = fixed_buffer[x + window->width * y];
+			renderer_rgb bottom = fixed_buffer[x + window->width * (y + 1)];
 
 			// Skip unchanged pixels
-            if (renderer_compare(top, last_frame[x + window->width * y]) &&
-                renderer_compare(bottom, last_frame[x + window->width * (y + 1)]))
+            if (renderer_compare(top, fixed_last_buffer[x + window->width * y]) &&
+                renderer_compare(bottom, fixed_last_buffer[x + window->width * (y + 1)]))
             {
                 pos += snprintf(str_buf + pos, max_str_size - pos, ESC "[C");
             }
@@ -214,19 +222,23 @@ void renderer_draw_kitty(renderer_term_window* window, renderer_rgb* buffer, ren
 
     puts(str_buf);
     free(str_buf);
+	free(fixed_buffer);
+	free(fixed_last_buffer);
 }
 
 
-void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
+void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
 {
 	size_t max_str_size = window->width * window->height * 25;
 	char* str_buf = (char*)malloc(max_str_size);
 
+	renderer_rgb* fixed_buffer = NULL;
+	renderer_set_scale(window, width, height, buffer, NULL, &fixed_buffer, NULL);
+
 	if (str_buf == NULL)
 		return;
 
-	size_t pos = 0;
-	pos += snprintf(str_buf + pos, max_str_size - pos, CSI "0;0H");
+	size_t pos = snprintf(str_buf, max_str_size, CSI "0;0H");
 
 	int top = 30;
 	int bottom = 40;
@@ -248,7 +260,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 			int dist = 10000000;
 			for (int i = 0; i < 16; i++)
 			{
-				int c = renderer_rgb_distance(buffer[x + window->width * y], window->palette[i]);
+				int c = renderer_rgb_distance(fixed_buffer[x + window->width * y], window->palette[i]);
 
 				if (dist > c)
 				{
@@ -260,7 +272,7 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 			dist = 10000000;
 			for (int i = 0; i < 16; i++)
 			{
-				int c = renderer_rgb_distance(buffer[x + window->width * (y + 1)], window->palette[i]);
+				int c = renderer_rgb_distance(fixed_buffer[x + window->width * (y + 1)], window->palette[i]);
 
 				if (dist > c)
 				{
@@ -296,6 +308,50 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer)
 
 	puts(str_buf);
 	free(str_buf);
+	free(fixed_buffer);
+}
+
+void renderer_draw_ascii(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
+{
+	char* ascii = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
+	size_t max_str_size = window->width * window->height * 25;
+	char* str_buf = (char*)malloc(max_str_size);
+
+	renderer_rgb* fixed_buffer = NULL;
+	renderer_set_scale(window, width, height, buffer, NULL, &fixed_buffer, NULL);
+
+	if (str_buf == NULL)
+		return;
+
+	size_t pos = snprintf(str_buf, max_str_size, CSI "0;0H");
+
+	// Loop through the buffer and add correct ansi sequence
+	for (int y = 0; y < window->height; y += 2)
+	{
+		pos += snprintf(str_buf + pos, max_str_size - pos, CSI "%d;0H", y / 2);
+		if (pos >= max_str_size)
+		{
+			puts(str_buf);
+			pos = 0;
+		}
+
+		for (int x = 0; x < window->width; x++)
+		{
+			char c = ascii[fixed_buffer[x + window->width * y].r / 255 * 92];
+			pos += snprintf(str_buf + pos, max_str_size - pos, "%c", c);
+
+			// Check if buffer is full and reset
+			if (pos >= max_str_size)
+			{
+				puts(str_buf);
+				pos = 0;
+			}
+		}
+	}
+
+	puts(str_buf);
+	free(str_buf);
+	free(fixed_buffer);
 }
 
 renderer_term_window* renderer_init(int mode)
@@ -373,11 +429,14 @@ void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_
 			renderer_draw_256(window, buffer, width, height);
 			break;
 		case RENDERER_KITTY:
-			renderer_draw_kitty(window, buffer, last_frame);
+			renderer_draw_kitty(window, buffer, last_frame, width, height);
+			break;
+		case RENDERER_ASCII:
+			renderer_draw_ascii(window, buffer, width, height);
 			break;
 		case RENDERER_PALETTE:
 		default:
-			renderer_draw_palette(window, buffer);
+			renderer_draw_palette(window, buffer, width, height);
 			break;
 	}
 }

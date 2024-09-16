@@ -44,6 +44,11 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    if (settings.mode == RENDERER_ASCII)
+    {
+        ctx->grayscale = 1;
+    }
+
     renderer_term_window* window = renderer_init(settings.mode);
     window->height -= 2; // make space for ui and "fix" a bug in the renderer
 
@@ -57,6 +62,7 @@ int main(int argc, char** argv)
 
     decoder_rgb* video_buffer = decoder_alloc_rgb(ctx);
     decoder_rgb* last_frame = decoder_alloc_rgb(ctx);
+
     if (video_buffer == NULL || last_frame == NULL)
     {
         renderer_destroy(window);
@@ -137,9 +143,10 @@ int main(int argc, char** argv)
                 switch (key)
                 {
                 case ' ': // space
-                    ;
+                    ;   
                     if (settings.audio)
                         SDL_ClearQueuedAudio(audio_ctx->sdl_device);
+                    
                     // time when pause period started
                     int64_t p_start = av_gettime();
                     while (1) // wait for interrupt or when space is pressed
@@ -165,7 +172,6 @@ int main(int argc, char** argv)
 
                     // add pause time to start time to offset
                     start += av_gettime() - p_start;
-
                     break;
                 case 'a':;
                     new_ms = ms - 5000;

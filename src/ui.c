@@ -24,9 +24,9 @@ ui_context* ui_init(int duration, int width, int height)
     // set linesize accordingly
     // if no hours, no need to render hour time
     if (ctx->d_hours == 0)
-        ctx->linesize = width - 14;
+        ctx->linesize = width - 16;
     else
-        ctx->linesize = width - 20;
+        ctx->linesize = width - 22;
 
     ctx->buffer = malloc(ctx->linesize + 1);
     if (ctx->buffer == NULL)
@@ -64,15 +64,23 @@ void ui_draw(ui_context* ctx, int ms)
         memset(ctx->buffer, '=', progress_width);
         memset(ctx->buffer + progress_width, ' ', remaining_width);
 
-        printf("%02d:%02d [%s] %02d:%02d", c_minutes, c_seconds, ctx->buffer, ctx->d_minutes, ctx->d_seconds);
+        printf("⏵ %02d:%02d [%s] %02d:%02d", c_minutes, c_seconds, ctx->buffer, ctx->d_minutes, ctx->d_seconds);
     }
     else
     {
         memset(ctx->buffer, '=', progress_width);
         memset(ctx->buffer + progress_width, ' ', remaining_width);
 
-        printf("%02d:%02d:%02d [%s] %02d:%02d:%02d", c_hours, c_minutes, c_seconds, ctx->buffer, ctx->d_hours, ctx->d_minutes, ctx->d_seconds);
+        printf("⏵ %02d:%02d:%02d [%s] %02d:%02d:%02d", c_hours, c_minutes, c_seconds, ctx->buffer, ctx->d_hours, ctx->d_minutes, ctx->d_seconds);
     }
+}
+
+void ui_pause(ui_context* ctx, int ms)
+{
+    printf("\x1B[37m\x1b[40m" // change colors
+           "\x1B[%d;0H", ctx->y); // move cursor
+
+    printf("⏸");
 }
 
 void ui_destroy(ui_context* ctx)
