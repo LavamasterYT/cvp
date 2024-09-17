@@ -314,6 +314,8 @@ void renderer_draw_palette(renderer_term_window* window, renderer_rgb* buffer, i
 void renderer_draw_ascii(renderer_term_window* window, renderer_rgb* buffer, int width, int height)
 {
 	char* ascii = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
+	
+
 	size_t max_str_size = window->width * window->height * 25;
 	char* str_buf = (char*)malloc(max_str_size);
 
@@ -337,7 +339,9 @@ void renderer_draw_ascii(renderer_term_window* window, renderer_rgb* buffer, int
 
 		for (int x = 0; x < window->width; x++)
 		{
-			char c = ascii[fixed_buffer[x + window->width * y].r / 255 * 92];
+            float gs = (float)fixed_buffer[x + window->width * y].r;
+            int index = (int)(gs / 255.0f * 92.0f);
+            char c = ascii[index];
 			pos += snprintf(str_buf + pos, max_str_size - pos, "%c", c);
 
 			// Check if buffer is full and reset
