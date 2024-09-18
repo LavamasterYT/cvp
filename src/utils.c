@@ -14,12 +14,9 @@ void help()
     printf("Plays a video file on the terminal.\n");
     printf("\n");
     printf("  -f, --full-color      Play the video file in RGB mode\n");
+    printf("  -g, --ascii           Renders the video using ASCII characters\n");
+    printf("  -e, --experimental    Uses an experimental rendering engine.\n");
     printf("  -a, --audio           Play audio\n");
-    printf("  -l, --libao           Uses libao instead of SDL for audio playback\n");
-    printf("  -t, --multithreading  Uses multithreading to decode videos.\n");
-    printf("                        Some codecs have trouble with this on, others\n");
-    printf("                        only work with this on. Use if video is playing\n");
-    printf("                        slowly.\n");
     printf("  -h, --help            Display this help and exit\n");
     printf("  -v, --version         Output version information and exit\n");
 }
@@ -48,10 +45,10 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                     if (argv[i][1] == '-')
                     {
                         if (strcmp(argv[i], "--full-color") == 0) settings->mode = RENDERER_FULL_COLOR;
-                        else if (strcmp(argv[i], "--kitty") == 0) settings->mode = RENDERER_KITTY;
-                        else if (strcmp(argv[i], "--multithreading") == 0) settings->multithreading = 1;
+                        if (strcmp(argv[i], "--ascii") == 0) settings->mode = RENDERER_ASCII;
+                        if (strcmp(argv[i], "--palette") == 0) settings->mode = RENDERER_PALETTE;
+                        else if (strcmp(argv[i], "--experimental") == 0) settings->mode = RENDERER_EXPERIMENTAL;
                         else if (strcmp(argv[i], "--audio") == 0) settings->audio = 1;
-                        else if (strcmp(argv[i], "--libao") == 0) settings->audio_driver = AUDIO_DRIVER_LIBAO;
                         else if (strcmp(argv[i], "--help") == 0)
                         {
                             help();
@@ -74,11 +71,10 @@ void handle_args(int argc, char** argv, cvp_settings* settings)
                         for (size_t j = 1; j < strlen(argv[i]); j++)
                         {
                             if (argv[i][j] == 'f') settings->mode = RENDERER_FULL_COLOR;
+                            else if (argv[i][j] == 'p') settings->mode = RENDERER_PALETTE;
                             else if (argv[i][j] == 'g') settings->mode = RENDERER_ASCII;
-                            else if (argv[i][j] == 'k') settings->mode = RENDERER_KITTY;
-                            else if (argv[i][j] == 't') settings->multithreading = 1;
+                            else if (argv[i][j] == 'e') settings->mode = RENDERER_EXPERIMENTAL;
                             else if (argv[i][j] == 'a') settings->audio = 1;
-                            else if (argv[i][j] == 'l') settings->audio_driver = AUDIO_DRIVER_LIBAO;
                             else if (argv[i][j] == 'h' || argv[i][j] == '?')
                             {
                                 help();

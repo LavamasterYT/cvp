@@ -39,7 +39,7 @@ decoder_context* decoder_init()
 	return ctx;
 }
 
-int decoder_open_input(decoder_context* ctx, const char* file, int width, int height, int use_multithreading)
+int decoder_open_input(decoder_context* ctx, const char* file, int width, int height)
 {
 	if (ctx == NULL)
 		return -1; // no ctx

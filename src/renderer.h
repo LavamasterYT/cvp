@@ -8,7 +8,7 @@
 
 #define RENDERER_FULL_COLOR 0
 #define RENDERER_PALETTE 1
-#define RENDERER_KITTY 2
+#define RENDERER_EXPERIMENTAL 2
 #define RENDERER_ASCII 3
 
 #define renderer_compare(x, y) ((x.r == y.r) && (x.g == y.g) && (x.b == y.b))
@@ -21,12 +21,26 @@ typedef struct renderer_rgb
 	uint8_t b;
 } renderer_rgb;
 
+typedef struct renderer_lab
+{
+	float l;
+	float a;
+	float b;
+} renderer_lab;
+
+typedef struct renderer_xyz
+{
+	float x;
+	float y;
+	float z;
+} renderer_xyz;
+
 typedef struct renderer_term_window
 {
 	int width;
 	int height;
 	int mode;
-	renderer_rgb palette[16];
+	renderer_lab palette[16];
 
 #ifdef _WIN32
 	unsigned long og_in_mode;

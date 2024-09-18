@@ -28,9 +28,7 @@ int main(int argc, char** argv)
     cvp_settings settings;
     settings.audio = 0;
     settings.input = NULL;
-    settings.multithreading = 0;
-    settings.mode = RENDERER_PALETTE;
-    settings.audio_driver = AUDIO_DRIVER_SDL;
+    settings.mode = RENDERER_ASCII;
     handle_args(argc, argv, &settings);
 
     // stop playing if we receive interrupt
@@ -52,7 +50,7 @@ int main(int argc, char** argv)
     renderer_term_window* window = renderer_init(settings.mode);
     window->height -= 2; // make space for ui and "fix" a bug in the renderer
 
-    if (decoder_open_input(ctx, settings.input, window->width, window->height, settings.multithreading) < 0)
+    if (decoder_open_input(ctx, settings.input, window->width, window->height) < 0)
     {
         renderer_destroy(window);
         printf("cvp: cannot access %s\n", settings.input);
@@ -73,7 +71,7 @@ int main(int argc, char** argv)
 
     audio_context* audio_ctx = NULL;
     if (settings.audio)
-        audio_ctx = audio_init(ctx->audio_ctx, settings.audio_driver);
+        audio_ctx = audio_init(ctx->audio_ctx);
 
     ui_context* ui_ctx = ui_init(ctx->duration, window->width, window->height + 1);
 

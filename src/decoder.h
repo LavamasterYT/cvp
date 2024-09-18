@@ -52,11 +52,10 @@ decoder_rgb* decoder_alloc_rgb(decoder_context* ctx);
 * @param file				Path to video file to open
 * @param width				Target width to scale frames to
 * @param height				Target height to scale frames to
-* @param use_multithreading	Use multithreading, use for some videos that are slow to decode.
 * 
 * @return >=0 if successful opening the file, otherwise failed opening file.
 */
-int decoder_open_input(decoder_context* ctx, const char* file, int width, int height, int use_multithreading);
+int decoder_open_input(decoder_context* ctx, const char* file, int width, int height);
 
 /**
 * Reads the next available frame and writes it to buffer/

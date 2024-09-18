@@ -26,32 +26,10 @@ int audio_init_sdl(audio_context* ctx, int channels)
 	}
 
 	SDL_PauseAudioDevice(ctx->sdl_device, 0);
-
-	ctx->driver = AUDIO_DRIVER_SDL;
-
 	return 0;
 }
 
-int audio_init_libao(audio_context* ctx, int channels)
-{
-	ao_initialize();
-	ao_sample_format format;
-	format.bits = 16;
-	format.channels = channels;
-	format.byte_format = AO_FMT_NATIVE;
-	format.matrix = 0;
-	format.rate = 44100;
-	ctx->device = ao_open_live(ao_default_driver_id(), &format, NULL);
-
-	ctx->driver = AUDIO_DRIVER_SDL;
-
-	if (ctx->device == NULL)
-		return 1;
-
-	return 0;
-}
-
-audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
+audio_context* audio_init(AVCodecContext* codec_ctx)
 {
 	audio_context* ctx = (audio_context*)malloc(sizeof(audio_context));
 	if (ctx == NULL)
@@ -82,25 +60,12 @@ audio_context* audio_init(AVCodecContext* codec_ctx, int audio_driver)
 
 	swr_init(ctx->resampler);
 
-	if (audio_driver == AUDIO_DRIVER_SDL)
+	if (audio_init_sdl(ctx, codec_ctx->ch_layout.nb_channels))
 	{
-		if (audio_init_sdl(ctx, codec_ctx->ch_layout.nb_channels))
-		{
-			av_frame_free(&ctx->resampled_frame);
-			swr_free(&ctx->resampler);
-			free(ctx);
-			return NULL;
-		}
-	}
-	else
-	{
-		if (audio_init_libao(ctx, codec_ctx->ch_layout.nb_channels))
-		{
-			av_frame_free(&ctx->resampled_frame);
-			swr_free(&ctx->resampler);
-			free(ctx);
-			return NULL;
-		}
+		av_frame_free(&ctx->resampled_frame);
+		swr_free(&ctx->resampler);
+		free(ctx);
+		return NULL;
 	}
 
 	return ctx;
@@ -135,10 +100,7 @@ void audio_playdata(audio_context* ctx, AVFrame* data)
 		return;
 	}
 
-	if (ctx->driver == AUDIO_DRIVER_LIBAO)
-		ao_play(ctx->device, ctx->resampled_frame->data[0], ctx->resampled_frame->linesize[0]);
-	else
-		SDL_QueueAudio(ctx->sdl_device, ctx->resampled_frame->data[0], ctx->resampled_frame->linesize[0]);
+	SDL_QueueAudio(ctx->sdl_device, ctx->resampled_frame->data[0], ctx->resampled_frame->linesize[0]);
 
 	av_frame_unref(data);
 	av_frame_unref(ctx->resampled_frame);
@@ -149,9 +111,6 @@ void audio_playdata(audio_context* ctx, AVFrame* data)
 void audio_wait(audio_context* ctx)
 {
 	if (ctx == NULL)
-		return;
-
-	if (ctx->driver != AUDIO_DRIVER_SDL)
 		return;
 
 	uint32_t remaining = 0;
@@ -175,16 +134,8 @@ void audio_destroy(audio_context* ctx)
 	av_frame_free(&ctx->resampled_frame);
 	swr_free(&ctx->resampler);
 
-	if (ctx->driver == AUDIO_DRIVER_LIBAO)
-	{
-		ao_close(ctx->device);
-		ao_shutdown();
-	}
-	else
-	{
-		SDL_CloseAudioDevice(ctx->sdl_device);
-		SDL_Quit();
-	}
+	SDL_CloseAudioDevice(ctx->sdl_device);
+	SDL_Quit();
 
 	free(ctx);
 }
