@@ -5,9 +5,12 @@
 #include <vector>
 #include <string>
 
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/imgutils.h>
+extern "C" {
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libswscale/swscale.h>
+	#include <libavutil/imgutils.h>
+}
 
 decoder::decoder()
 {
@@ -45,6 +48,7 @@ int decoder::open(std::string file, bool get_audio)
 	// Open file
 	ret = avformat_open_input(&fmtctx, file.c_str(), NULL, NULL);
 	if (ret != 0) return DECODER_ERROR_FILE;
+	avformat_find_stream_info(fmtctx, nullptr);
 
 	// Find the best stream for video and audio
 	video_index = av_find_best_stream(fmtctx, AVMEDIA_TYPE_VIDEO, -1, -1, &video_codec, 0);
@@ -83,19 +87,23 @@ int decoder::open(std::string file, bool get_audio)
 	if (get_audio)
 		if (avcodec_open2(audio_ctx, audio_codec, NULL)) return DECODER_ERROR_CODEC;
 
-	fps = static_cast<double>(fmtctx->streams[video_index]->r_frame_rate.num) / static_cast<double>(fmtctx->streams[video_index]->r_frame_rate.den);
+	AVRational fr = av_guess_frame_rate(fmtctx, fmtctx->streams[video_index], nullptr);
+	fps = av_q2d(fr);
+
 	duration = fmtctx->duration / 1000;
+
+	return 0;
 }
 
-int decoder::read_frame()
+int decoder::read_frame(double* pts)
 {
 	while (1)
 	{
 		// Read the next frame
-		if (av_read_frame(fmtctx, packet) < 0) return DECODER_ERROR_EOF;
+		if (av_read_frame(fmtctx, packet) != 0) return DECODER_ERROR_EOF;
 
 		// Continue to the next frame if it isnt audio or video
-		if (packet->stream_index != audio_index || packet->stream_index != video_index)
+		if (!(packet->stream_index == audio_index || packet->stream_index == video_index))
 		{
 			av_packet_unref(packet);
 			continue;
@@ -122,6 +130,9 @@ int decoder::read_frame()
 		// Return the index of the type of data we recieved
 		int index = packet->stream_index;
 		av_packet_unref(packet);
+
+		*pts = raw_frame->best_effort_timestamp * av_q2d(fmtctx->streams[video_index]->time_base);
+
 		return index;
 	}
 }
@@ -173,7 +184,6 @@ void decoder::decode(std::vector<colors_rgb>& buffer, int width, int height, int
 
 	// Set buffer to appropriate size and fill with zeroes
 	buffer.resize(*output_width * *output_height);
-	std::fill(buffer.begin(), buffer.end(), 0);
 
 	// Intialize scaled_frame
 	if (av_image_fill_arrays(scaled_frame->data, scaled_frame->linesize, (uint8_t*)buffer.data(), AV_PIX_FMT_RGB24, *output_width, *output_height, 1) < 0)

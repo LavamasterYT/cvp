@@ -5,9 +5,11 @@
 #include <string>
 #include <vector>
 
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
+extern "C" {
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libswscale/swscale.h>
+}
 
 #include "colors.h"
 
@@ -47,7 +49,7 @@ public:
 	* @return The index of the frame (aka type of frame)
 	* @note Frame doesn't necessarily mean video frame, it could also be audio.
 	*/
-	int read_frame();
+	int read_frame(double* pts);
 
 	/**
 	* Discards the frame that was read.
