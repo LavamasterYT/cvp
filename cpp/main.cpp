@@ -13,43 +13,44 @@
 #include "renderer.h"
 #include "input.h"
 #include "ui.h"
+#include "audio.h"
 
-bool requested_int = 0;
-std::unique_ptr<renderer> r(nullptr);
+bool requested_int = false;
 
-void handle_interrupt(int sig)
+std::unique_ptr<renderer> r = std::make_unique<renderer>();
+std::unique_ptr<decoder> d = std::make_unique<decoder>();
+std::unique_ptr<audio> a(nullptr);
+
+void set_signals()
 {
-    (void)sig;
-    requested_int = 1;
+    signal(SIGINT, [ ] (int) { requested_int = true; });
+    signal(SIGWINCH, [ ] (int) { if (r != nullptr) r->set_dimensions(); });
 }
 
-void handle_resize(int sig)
+int main(int argc, char** argv)
 {
-    (void)sig;
-    if (r != nullptr)
+    if (argc != 2)
     {
-        r->set_dimensions();
+        fmt::println("Usage: cvp [options] <input>");
+        return -1;
     }
-}
 
-int main()
-{
-    signal(SIGINT, handle_interrupt);
-    signal(SIGWINCH, handle_resize);
+    set_signals();
 
-    decoder d;
-    d.open("/Users/josem/Movies/YouTube/chainsaw.mp4", false);
-
-    r = std::make_unique<renderer>();
+    d->open(argv[1], true);
     r->height -= 2;
     r->mode = RENDERER_MODE_ASCII;
 
+    a = std::make_unique<audio>(d->get_audio_ctx());
+
     std::vector<colors_rgb> buffer;
-    int s_w, s_h;
+
     bool paused = false;
 
+    int s_w, s_h;
+
     double pts;
-    double fd = 1.0 / d.fps;
+    double fd = 1.0 / d->fps;
     double elapsed = 0;
 
     auto start = std::chrono::steady_clock::now();
@@ -82,12 +83,12 @@ int main()
                         auto new_ms = elapsed - 5000;
                         if (new_ms < 0)
                             new_ms = 0;
-                        d.seek(new_ms);
+                        d->seek(new_ms);
                         start += std::chrono::milliseconds(static_cast<int>(elapsed - new_ms));
                     } break;
                 case 'd': {
                         auto new_ms = elapsed + 5000;
-                        d.seek(new_ms);
+                        d->seek(new_ms);
                         start -= std::chrono::milliseconds(static_cast<int>(new_ms - elapsed));
                     } break;
                 case ' ':
@@ -99,9 +100,7 @@ int main()
                         start += dif;
                     }
                     else
-                    {
                         delta = std::chrono::steady_clock::now();
-                    }
                     break;
             }
         }
@@ -109,10 +108,16 @@ int main()
         if (paused)
             continue;
 
-        int fi = d.read_frame(&pts);
+        int fi = d->read_frame(&pts);
 
         if (fi < 0) // eof
             break;
+
+        if (fi == d->audio_index)
+        {
+            a->play(d->get_raw_frame());
+            continue;
+        }
 
         auto current = std::chrono::steady_clock::now();
         elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(current - start).count();
@@ -120,24 +125,18 @@ int main()
         double delay = pts - (elapsed / 1000);
 
         if (delay > 0)
-        {
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(delay * 1000)));
-        }
         else if (delay < -fd)
-        {
             continue;
-        }
 
-        d.decode(buffer, r->width, r->height, &s_w, &s_h, r->mode == RENDERER_MODE_ASCII);
+        d->decode(buffer, r->width, r->height, &s_w, &s_h, r->mode == RENDERER_MODE_ASCII);
         r->draw(buffer, s_w, s_h);
-        ui_draw(paused, static_cast<int>(elapsed), d.duration, r->width, r->height);
+        ui_draw(paused, static_cast<int>(elapsed), d->duration, r->width, r->height);
     }
 
     r.~unique_ptr();
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration = end - start;
-    fmt::println("Took {}ms", duration.count());
+    d.~unique_ptr();
+    a.~unique_ptr();
 
     return 0;
 }

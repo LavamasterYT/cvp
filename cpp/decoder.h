@@ -76,6 +76,22 @@ public:
 	void decode(std::vector<colors_rgb>& buffer, int width, int height, int* output_width, int* output_height, bool grayscale);
 
 	/**
+	 * Retrieves the raw frame read from read_frame.
+	 * 
+	 * @return The pointer to the raw frame
+	 */
+	AVFrame* get_raw_frame();
+
+	/**
+	 * Retrieves the audio context. Only use if you know what you're doing.
+	 * 
+	 * @return The pointer to the audio context
+	 */
+	AVCodecContext* get_audio_ctx();
+
+	AVFormatContext* get_format_ctx();
+
+	/**
 	* Frees any resources allocated in this class.
 	*/
 	~decoder();

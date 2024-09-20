@@ -45,6 +45,6 @@ void ui_draw(bool paused, int elapsed, int duration, int width, int height)
     }
     else
     {
-        //fmt::print("<{:02}:{:02}>{}\x1B[37m{}\x1B[107m<{:02}:{:02}>", c_minutes, c_seconds, elapsed_line, remaining_line, d_minutes, d_seconds);
+        fmt::print("<{:02}:{:02}:{:02}>{}{}<{:02}:{:02}:{:02}>", c_hours, c_minutes, c_seconds, elapsed_line, remaining_line, d_hours, d_minutes, d_seconds);
     }
 }

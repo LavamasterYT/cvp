@@ -51,12 +51,7 @@ audio_context* audio_init(AVCodecContext* codec_ctx)
 		ret = 0;
 #endif
 
-	if (ret < 0)
-	{
-		av_frame_free(&ctx->resampled_frame);
-		free(ctx);
-		return NULL;
-	}
+	
 
 	swr_init(ctx->resampler);
 

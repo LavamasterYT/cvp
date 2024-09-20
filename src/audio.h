@@ -5,8 +5,7 @@
 
 #include <stdint.h>
 #include <SDL2/SDL.h>
-#include <libswresample/swresample.h>
-#include <libavcodec/avcodec.h>
+S
 
 typedef struct audio_context
 {

@@ -137,6 +137,21 @@ int decoder::read_frame(double* pts)
 	}
 }
 
+AVFrame* decoder::get_raw_frame()
+{
+	return raw_frame;
+}
+
+AVCodecContext* decoder::get_audio_ctx()
+{
+	return audio_ctx;
+}
+
+AVFormatContext* decoder::get_format_ctx()
+{
+	return fmtctx;
+}
+
 void decoder::discard_frame()
 {
 	av_frame_unref(raw_frame);
