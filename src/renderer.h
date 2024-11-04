@@ -1,76 +1,43 @@
-#ifndef RENDERER_H
-#define RENDERER_H
+#pragma once
 
-#include <stdint.h>
+#include <string>
+#include <vector>
+
+#include "colors.h"
 
 #define ESC "\x1B"
 #define CSI "\x1B["
 
-#define RENDERER_FULL_COLOR 0
-#define RENDERER_PALETTE 1
-#define RENDERER_EXPERIMENTAL 2
-#define RENDERER_ASCII 3
-
-#define renderer_compare(x, y) ((x.r == y.r) && (x.g == y.g) && (x.b == y.b))
-#define renderer_rgb_distance(x, y) ((x.r - y.r) * (x.r - y.r)) + ((x.g - y.g) * (x.g - y.g)) + ((x.b - y.b) * (x.b - y.b))
-
-typedef struct renderer_rgb
+enum renderer_mode
 {
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-} renderer_rgb;
+	RENDERER_MODE_ASCII,
+	RENDERER_MODE_PALETTE,
+	RENDERER_MODE_FULL_COLOR,
+};
 
-typedef struct renderer_lab
+class renderer
 {
-	float l;
-	float a;
-	float b;
-} renderer_lab;
-
-typedef struct renderer_xyz
-{
-	float x;
-	float y;
-	float z;
-} renderer_xyz;
-
-typedef struct renderer_term_window
-{
+public:
 	int width;
 	int height;
 	int mode;
-	renderer_lab palette[16];
 
+	renderer();
+	~renderer();
+
+	void draw(std::vector<colors_rgb>& buffer, int crop_width, int crop_height);
+	void clear();
+	void set_dimensions();
+
+private:
 #ifdef _WIN32
-	unsigned long og_in_mode;
-	unsigned long og_out_mode;
+	long og_in_mode;
+	long og_out_mode;
 #endif
-} renderer_term_window;
+	std::string ascii;
+	std::vector<colors_lab> palette;
 
-/**
-* Initialize the terminal and gets it ready for drawing.
-* RENDERER_FULL_COLOR - Attempts to draw to the terminal using the entire RGB colorspace, more intensive and not as compatible but better picture.
-* RENDERER_PALETTE - Attempts to draw to the terminal using the predetermined 16 color palette, more compatible and faster but lower quality picture.
-* 
-* @param mode	The mode that will be used to draw to the terminal.
-*	
-* @return Pointer to renderer_term_window
-*/
-renderer_term_window* renderer_init(int mode);
+	void intialize_palette();
+	void scale_buffer(std::vector<colors_rgb>& src, std::vector<colors_rgb>& dst, int slc_width, int slc_height);
+};
 
-/**
-* Initialize the terminal and gets it ready for drawing
-*
-* @param window	 Pointer to existing terminal window instance
-* @param buffer	 Data to draw to the terminal
-*/
-void renderer_draw(renderer_term_window* window, renderer_rgb* buffer, renderer_rgb* last_frame, int width, int height);
-
-/**
-* Destroys and frees resources
-*/
-void renderer_destroy(renderer_term_window* window);
-
-
-#endif // RENDERER_H

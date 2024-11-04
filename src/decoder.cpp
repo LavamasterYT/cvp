@@ -130,8 +130,19 @@ int decoder::read_frame(double* pts)
 		// Return the index of the type of data we recieved
 		int index = packet->stream_index;
 		av_packet_unref(packet);
-
-		*pts = raw_frame->best_effort_timestamp * av_q2d(fmtctx->streams[video_index]->time_base);
+        
+        if (raw_frame->pts != AV_NOPTS_VALUE)
+        {
+            *pts = raw_frame->pts * av_q2d(fmtctx->streams[index]->time_base);
+        }
+        else if (raw_frame->best_effort_timestamp != AV_NOPTS_VALUE)
+        {
+            *pts = raw_frame->best_effort_timestamp * av_q2d(fmtctx->streams[index]->time_base);
+        }
+        else
+        {
+            *pts = 0.0;
+        }
 
 		return index;
 	}

@@ -1,83 +1,109 @@
-#ifndef DECODER_H
-#define DECODER_H
+#pragma once
 
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
-typedef struct decoder_context
+extern "C" {
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libswscale/swscale.h>
+}
+
+#include "colors.h"
+
+enum decoder_error {
+	DECODER_ERROR_FILE = -1,
+	DECODER_ERROR_STREAM = -2,
+	DECODER_ERROR_CODEC = -3,
+	DECODER_ERROR_CODEC_CTX = -4,
+	DECODER_ERROR_EOF = -5
+};
+
+class decoder
 {
-	AVFormatContext* format_ctx; // format context
-	AVCodecContext* video_ctx; // codec context
-	AVCodecContext* audio_ctx; // codec context
-	struct SwsContext* sws_ctx; // scaling context
-	const AVCodec* video_codec; // video codec
-	const AVCodec* audio_codec; // video codec
-	AVFrame* frame; // original video frame
-	AVFrame* rgb_frame; // downscaled video frame
-	AVPacket* packet; // video packet
-	int video_index; // video stream index
-	int audio_index; // audio stream index
-	int width; // output width to scaled down/up to
-	int height; // output height to scaled down/up to
-	int duration; // length of video (in ms)
-	double fps; // self-explanitory
-	int grayscale;
-} decoder_context;
+public:
+	int duration;
+	int audio_index;
+	int video_index;
+	double fps;
 
-typedef struct decoder_rgb
-{
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-} decoder_rgb;
+	/**
+	* Intializes the docoder class
+	*/
+	decoder();
 
-/**
-* Initializes the decoder for reading video files.
-* 
-* @return Pointer to a decoder_context if successful, NULL if failed to initialize internal resources.
-*/
-decoder_context* decoder_init();
+	/**
+	* Opens and reads the file
+	* 
+	* @param file The file to open
+	* @param get_audio If true, opens the audio stream as well
+	* @return 0 on success, an error code on failure.
+	*/
+	int open(std::string file, bool get_audio);
 
-/**
-* Allocates appropriate memory for an RGB buffer.
-* 
-* @return Pointer to a decoder_rgb buffer if successfull, NULL otherwise if failed allocating memory.
-*/
-decoder_rgb* decoder_alloc_rgb(decoder_context* ctx);
+	/**
+	* Reads the next frame from the video.
+	* 
+	* @return The index of the frame (aka type of frame)
+	* @note Frame doesn't necessarily mean video frame, it could also be audio.
+	*/
+	int read_frame(double* pts);
 
-/**
-* Opens a file, and sets up scalers to read frames at a specified width and height
-* 
-* @param ctx				Decoder context
-* @param file				Path to video file to open
-* @param width				Target width to scale frames to
-* @param height				Target height to scale frames to
-* 
-* @return >=0 if successful opening the file, otherwise failed opening file.
-*/
-int decoder_open_input(decoder_context* ctx, const char* file, int width, int height);
+	/**
+	* Discards the frame that was read.
+	*/
+	void discard_frame();
 
-/**
-* Reads the next available frame and writes it to buffer/
-*
-* @param ctx	Decoder context
-* @param buffer	Pointer to buffer to write frame to
-*
-* @return 0 if successful reading the frame, otherwise encountered EOF or other internal error.
-*/
-int decoder_read_frame(decoder_context* ctx);
+	/**
+	* Seeks to the specified point of the video.
+	* 
+	* @return The frame number of the seeked point.
+	*/
+	int64_t seek(int64_t ms);
 
-int64_t decoder_seek(decoder_context* ctx, int64_t ms);
+	/**
+	* Decodes the video frame, scales it while conforming to aspect ratio,
+	* and writes the frame to the buffer.
+	* 
+	* @param buffer The buffer to write the final converted frame to.
+	* @param width The requested width to scale to
+	* @param height The requested height to scale to
+	* @param output_width Pointer to store the scaled width to.
+	* @param output_height Pointer to store the scaled height to.
+	*/
+	void decode(std::vector<colors_rgb>& buffer, int width, int height, int* output_width, int* output_height, bool grayscale);
 
-void decoder_discard_frame(decoder_context* ctx);
+	/**
+	 * Retrieves the raw frame read from read_frame.
+	 * 
+	 * @return The pointer to the raw frame
+	 */
+	AVFrame* get_raw_frame();
 
-void decoder_decode_video(decoder_context* ctx, decoder_rgb* buffer);
+	/**
+	 * Retrieves the audio context. Only use if you know what you're doing.
+	 * 
+	 * @return The pointer to the audio context
+	 */
+	AVCodecContext* get_audio_ctx();
 
-/**
-* Destroys and frees any allocated resources
-*
-* @param ctx	Decoder context
-*/
-void decoder_ctx_destroy(decoder_context* ctx);
+	AVFormatContext* get_format_ctx();
 
-#endif // DECODER_H
+	/**
+	* Frees any resources allocated in this class.
+	*/
+	~decoder();
+
+private:
+	AVFormatContext* fmtctx;
+	AVCodecContext* video_ctx;
+	AVCodecContext* audio_ctx;
+	AVPacket* packet;
+	AVFrame* raw_frame;
+	AVFrame* scaled_frame;
+	const AVCodec* audio_codec;
+	const AVCodec* video_codec;
+};
+

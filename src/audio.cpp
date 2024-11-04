@@ -63,18 +63,13 @@ bool audio::init_sdl()
     return true;
 }
 
-void audio::wait()
+void audio::clear(int ms)
 {
-    unsigned int remaining = 0;
+    int64_t audio_pts = (44100 - SDL_GetQueuedAudioSize(dev) / 
+						(2 * ctx->ch_layout.nb_channels)) * 1000 / 44100; 
 
-	while (1)
-	{
-		remaining = SDL_GetQueuedAudioSize(dev);
-
-		if (remaining < 5)
-			return;
-
-		SDL_Delay(100);
+	if (audio_pts > ms + 100) {
+		SDL_ClearQueuedAudio(dev);
 	}
 }
 
