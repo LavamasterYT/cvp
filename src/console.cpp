@@ -6,14 +6,14 @@
 
 #ifdef _WIN32
 
-#include <curses.h>
+#include <conio.h>
 #include <Windows.h>
 #define RENDERER_PIXEL_CHAR "\xDF"
 
 #elif defined(__unix__) || defined(__APPLE__)
 
-#include <ncurses.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 #define RENDERER_PIXEL_CHAR "▀"
 
@@ -28,7 +28,7 @@ Console::Console() : mInputThread { } {
     mIsReset = true;
     mWidth = 0;
     mHeight = 0;
-    mKeypress = ERR;
+    mKeypress = -1;
     mMode = Console::ColorMode::MODE_ASCII;
 }
 
@@ -38,8 +38,30 @@ Console::~Console() {
 }
 
 void Console::GetInputLoop() {
+    #if defined(__unix__) || defined(__APPLE__)
+
+    auto _kbhit = [&] () {
+        struct timeval tv = { 0L, 0L };
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv);
+    };
+
+    auto _getch = [&] () {
+        char ch;
+        if (read(STDIN_FILENO, &ch, 1) < 0) {
+            return -1;
+        }
+        return (int)ch;
+    };
+
+    #endif
+
     while (!mIsReset) {
-        mKeypress = getch();
+        if (_kbhit()) {
+            mKeypress = _getch();
+        }
     }
 }
 
@@ -72,15 +94,16 @@ void Console::initialize() {
 
 	SetConsoleMode(hout, mOldOutMode);
 	SetConsoleMode(hin, mOldInMode);
+    #else
+    struct termios term;
+    tcgetattr(0, &term);
+    term.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(0, TCSANOW, &term);
     #endif
 
     mInputThread = std::thread(&Console::GetInputLoop, this);
 
-    initscr();
-    cbreak();
-    noecho();
-    curs_set(0);
-    timeout(1);
+    fmt::print(CSI "?1049h" CSI "?25l");
 
     reset_state();
 }
@@ -93,8 +116,15 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
     
     fmt::print(CSI "0;0H");
 
-    for (int y = 0; y <= mHeight; y += dY) {
-        fmt::print(CSI "{};0H", y / dY); // Set cursor to beginning of next line
+    if (mMode == MODE_256) {
+        fmt::print(CSI "38;2;0;0;0m" CSI "48;2;0;0;0m▀");
+    }
+    else if (mMode == MODE_16) {
+        // TODO: reset colors
+    }
+
+    for (int y = 0; y < mHeight; y += dY) {
+        fmt::print(CSI "{};0H", (y / dY) + 1); // Set cursor to beginning of next line
 
         for (int x = 0; x < mWidth; x++) {
             switch (mMode) {
@@ -169,8 +199,7 @@ void Console::reset_state() {
 }
 
 void Console::reset_console() {
-    curs_set(1);
-    endwin();
+    fmt::print(CSI "?1049l" CSI "?25h");
 
     #ifdef _WIN32
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -178,6 +207,14 @@ void Console::reset_console() {
 
 	SetConsoleMode(hout, mOldOutMode);
 	SetConsoleMode(hin, mOldInMode);
+    #else
+
+    struct termios term;
+    tcgetattr(0, &term);
+    term.c_lflag |= ICANON | ECHO;
+    tcsetattr(0, TCSANOW, &term);
+    tcflush(0, TCIFLUSH);
+
     #endif
 
     mIsReset = true;

@@ -2,7 +2,6 @@
 #include "console.h"
 
 #include <fmt/core.h>
-#include <ncurses.h>
 
 #include <cstdint>
 #include <string>
@@ -16,29 +15,20 @@ struct v2 {
 typedef struct v2 v2;
 
 int main() {
-    fmt::println("\x1B[0;0H" "testing");
-    fmt::print("\x1B[" "{};0H@", 18);
-    fmt::print("\x1B[" "{};0H#", 19);
-    fmt::print("\x1B[" "{};0H.", 20);
-    fmt::println("\x1B[0;0H" "testing");
-
-    getchar();
-
-
     std::string file = "/Users/josem/Movies/YouTube/chainsaw.mp4";
 
     Console r;
     v2 pos;
 
-    r.set_mode(Console::ColorMode::MODE_ASCII);
+    r.set_mode(Console::ColorMode::MODE_256);
     r.initialize();
 
     std::vector<colors::rgb> buffer(r.width() * r.height());
 
     for (auto& i : buffer) {
-        i.r = 50;
-        i.g = 50;
-        i.b = 50;
+        i.r = 7;
+        i.g = 7;
+        i.b = 7;
     }
 
     pos.x = 0;
@@ -50,9 +40,9 @@ int main() {
 
         r.draw(buffer);
 
-        buffer[pos.x + r.width() * pos.y].r = 0;
-        buffer[pos.x + r.width() * pos.y].g = 0;
-        buffer[pos.x + r.width() * pos.y].b = 0;
+        buffer[pos.x + r.width() * pos.y].r = 7;
+        buffer[pos.x + r.width() * pos.y].g = 7;
+        buffer[pos.x + r.width() * pos.y].b = 7;
 
         int key = r.handle_keypress();
 
@@ -88,9 +78,9 @@ int main() {
             }
         }
 
-        buffer[pos.x + r.width() * pos.y].r = 0;
-        buffer[pos.x + r.width() * pos.y].g = 255;
-        buffer[pos.x + r.width() * pos.y].b = 0;
+        buffer[pos.x + r.width() * pos.y].r = 254;
+        buffer[pos.x + r.width() * pos.y].g = 254;
+        buffer[pos.x + r.width() * pos.y].b = 254;
     }
 
     r.reset_console();
