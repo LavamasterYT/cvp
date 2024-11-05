@@ -99,7 +99,11 @@ void renderer::set_dimensions()
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
 
 	width = size.ws_col;
-	height = size.ws_row * 2;
+	height = size.ws_row;
+
+	if (mode != RENDERER_MODE_ASCII) {
+		height *= 2;
+	}
 #endif
 }
 

@@ -1,5 +1,6 @@
 # VS Code files for those working on multiple tools
 .vscode/*
+.vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -15,9 +16,6 @@ src/cvp.exe
 
 # CMake build dir
 build/
-
-# VCpkg
-vcpkg
 
 # CLion
 .idea/

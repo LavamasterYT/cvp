@@ -135,7 +135,7 @@ bool handle_args(int argc, char** argv, std::string* f, int* mode, bool* ui, boo
     return true;
 }
 
-int main(int argc, char** argv)
+int old_main(int argc, char** argv)
 {
     std::vector<colors_rgb> buffer;
     std::string file;

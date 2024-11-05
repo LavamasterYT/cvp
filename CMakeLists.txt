@@ -1,31 +1,31 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Project name
+set(VCPKG_ROOT "vcpkg")
+set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+
 project(cvp)
 
-# Set the C standard
 set(CMAKE_CXX_STANDARD 17)
 
-# Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3")
+set(CURSES_NEED_NCURSES TRUE)
+find_package(Curses REQUIRED)
+find_package(sdl2 CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(FFMPEG REQUIRED)
 
-# Use pkg-config for Unix-like systems (Linux, macOS)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED libswscale libavformat libavutil libavcodec libswresample)
-pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(FMT REQUIRED fmt)
-
-include_directories(${FFMPEG_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} ${FMT_INCLUDE_DIRS})
-link_directories(${FFMPEG_LIBRARY_DIRS} ${SDL2_LIBRARY_DIRS} ${FMT_LIBRARY_DIRS})
-
-set(LIBS ${FFMPEG_LIBRARIES} ${SDL2_LIBRARIES} ${FMT_LIBRARIES} m)
-
-# Source files
 file(GLOB SRC "src/*.cpp" "src/*.h")
 
-# Add the executable
 add_executable(cvp ${SRC})
 
-# Link the executable to the libraries
-target_link_libraries(cvp ${LIBS})
+target_link_libraries(cvp)
+
+target_include_directories(cvp PRIVATE ${CURSES_INCLUDE_DIRS} ${FFMPEG_INCLUDE_DIRS})
+target_compile_options(cvp PRIVATE ${CURSES_CFLAGS})
+target_link_directories(cvp PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(cvp
+    PRIVATE
+    ${FFMPEG_LIBRARIES}
+    fmt::fmt
+    ${CURSES_LIBRARIES}
+    $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+    $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>)
