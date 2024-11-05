@@ -8,14 +8,12 @@
 
 #include <conio.h>
 #include <Windows.h>
-#define RENDERER_PIXEL_CHAR "\xDF"
 
 #elif defined(__unix__) || defined(__APPLE__)
 
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
-#define RENDERER_PIXEL_CHAR "▀"
 
 #endif
 
@@ -142,11 +140,11 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
                 colors::rgb bottom = buffer[x + mWidth * (y + 1)];
 
                 if (colors::compare_rgb(top, oldTop) && colors::compare_rgb(bottom, oldBottom))
-                    fmt::print(RENDERER_PIXEL_CHAR);
+                    fmt::print("▀");
                 else if (colors::compare_rgb(top, oldTop))
-                    fmt::print(CSI "48;2;{};{};{}m" RENDERER_PIXEL_CHAR, bottom.r, bottom.g, bottom.b);
+                    fmt::print(CSI "48;2;{};{};{}m▀", bottom.r, bottom.g, bottom.b);
                 else if (colors::compare_rgb(bottom, oldBottom))
-                    fmt::print(CSI "38;2;{};{};{}m" RENDERER_PIXEL_CHAR, top.r, top.g, top.b);
+                    fmt::print(CSI "38;2;{};{};{}m▀", top.r, top.g, top.b);
                 else
 				    fmt::print(CSI "38;2;{};{};{}m" CSI "48;2;{};{};{}m▀", top.r, top.g, top.b, bottom.r, bottom.g, bottom.b);
                     
@@ -184,18 +182,18 @@ void Console::reset_state() {
 
 	// get console width and height
 	mWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-	mHeight = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1) * 2;
+	mHeight = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1);
     #elif defined(__unix__) || defined(__APPLE__)
 	struct winsize size;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
 
 	mWidth = size.ws_col;
 	mHeight = size.ws_row;
-
-	if (mMode != MODE_ASCII) {
-		mHeight *= 2;
-	}
     #endif
+
+    if (mMode != MODE_ASCII) {
+        mHeight *= 2;
+    }
 }
 
 void Console::reset_console() {
