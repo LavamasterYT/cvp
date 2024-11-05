@@ -1,5 +1,7 @@
 #include "console.h"
 
+#include <chrono>
+#include <thread>
 #include <vector>
 
 #include <fmt/core.h>
@@ -60,6 +62,8 @@ void Console::GetInputLoop() {
         if (_kbhit()) {
             mKeypress = _getch();
         }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
@@ -133,8 +137,39 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
                 fmt::print("{}", ascii[asciiIndex]);
             } break;
             case MODE_16: {
+                int top, bottom;
+                int distance = 1000000;
+                colors::lab current = colors::rgb_to_lab(buffer[x + mWidth * y]);
 
-            }break;
+                for (int i = 0; i < mPalette.size(); i++) {
+                    int c = colors::euclidean_lab(current, mPalette[i]);
+                    if (distance > c) {
+                        distance = c;
+                        top = i <= 7 ? 30 + i : 90 + i % 8;
+                    }
+                }
+
+                distance = 1000000;
+                current = colors::rgb_to_lab(buffer[x + mWidth * (y + 1)]);
+
+                for (int i = 0; i < mPalette.size(); i++) {
+                    int c = colors::euclidean_lab(current, mPalette[i]);
+                    if (distance > c) {
+                        distance = c;
+                        bottom = i <= 7 ? 40 + i : 100 + i % 8;
+                    }
+                }
+
+                if (top == oldTop.r && bottom == oldBottom.r)
+                    fmt::print("▀");
+                else if (top == oldTop.r)
+                    fmt::print(CSI "{}m▀", bottom);
+                else if (bottom == oldBottom.r)
+                    fmt::print(CSI "{}m▀", top);
+                else
+                    fmt::print(CSI "{}m" CSI "{}m▀", top, bottom);
+
+            } break;
             case MODE_256: {
                 colors::rgb top = buffer[x + mWidth * y];
                 colors::rgb bottom = buffer[x + mWidth * (y + 1)];
@@ -192,8 +227,8 @@ void Console::reset_state() {
     #endif
 
     if (mMode != MODE_ASCII) {
-        mHeight *= 2;
-    }
+		mHeight *= 2;
+	}
 }
 
 void Console::reset_console() {

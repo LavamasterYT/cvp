@@ -3,8 +3,10 @@
 
 #include <fmt/core.h>
 
+#include <chrono>
 #include <cstdint>
 #include <string>
+#include <thread>
 #include <vector>
 
 struct v2 {
@@ -20,7 +22,7 @@ int main() {
     Console r;
     v2 pos;
 
-    r.set_mode(Console::ColorMode::MODE_256);
+    r.set_mode(Console::ColorMode::MODE_16);
     r.initialize();
 
     std::vector<colors::rgb> buffer(r.width() * r.height());
@@ -81,6 +83,8 @@ int main() {
         buffer[pos.x + r.width() * pos.y].r = 254;
         buffer[pos.x + r.width() * pos.y].g = 254;
         buffer[pos.x + r.width() * pos.y].b = 254;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
     r.reset_console();
