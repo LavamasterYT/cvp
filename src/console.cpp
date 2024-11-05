@@ -3,15 +3,16 @@
 #include <vector>
 
 #include <fmt/core.h>
-#include <ncurses.h>
 
 #ifdef _WIN32
 
+#include <curses.h>
 #include <Windows.h>
 #define RENDERER_PIXEL_CHAR "\xDF"
 
 #elif defined(__unix__) || defined(__APPLE__)
 
+#include <ncurses.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #define RENDERER_PIXEL_CHAR "▀"
@@ -47,30 +48,30 @@ void Console::initialize() {
 
     mPalette.resize(16);
 
-	mPalette[0] = colors::rgb_to_lab((colors::rgb){12, 12, 12});
-	mPalette[1] = colors::rgb_to_lab((colors::rgb){197, 15, 31});
-	mPalette[2] = colors::rgb_to_lab((colors::rgb){19, 161, 14});
-	mPalette[3] = colors::rgb_to_lab((colors::rgb){193, 161, 14});
-	mPalette[4] = colors::rgb_to_lab((colors::rgb){0, 55, 218});
-	mPalette[5] = colors::rgb_to_lab((colors::rgb){136, 23, 152});
-	mPalette[6] = colors::rgb_to_lab((colors::rgb){58, 150, 221});
-	mPalette[7] = colors::rgb_to_lab((colors::rgb){204, 204, 204});
+	mPalette[0] = colors::rgb_to_lab({12, 12, 12});
+	mPalette[1] = colors::rgb_to_lab({197, 15, 31});
+	mPalette[2] = colors::rgb_to_lab({19, 161, 14});
+	mPalette[3] = colors::rgb_to_lab({193, 161, 14});
+	mPalette[4] = colors::rgb_to_lab({0, 55, 218});
+	mPalette[5] = colors::rgb_to_lab({136, 23, 152});
+	mPalette[6] = colors::rgb_to_lab({58, 150, 221});
+	mPalette[7] = colors::rgb_to_lab({204, 204, 204});
 
-	mPalette[8] = colors::rgb_to_lab((colors::rgb){118, 118, 118});
-	mPalette[9] = colors::rgb_to_lab((colors::rgb){231, 72, 86});
-	mPalette[10] = colors::rgb_to_lab((colors::rgb){22, 198, 12});
-	mPalette[11] = colors::rgb_to_lab((colors::rgb){249, 241, 165});
-	mPalette[12] = colors::rgb_to_lab((colors::rgb){59, 120, 255});
-	mPalette[13] = colors::rgb_to_lab((colors::rgb){180, 0, 158});
-	mPalette[14] = colors::rgb_to_lab((colors::rgb){97, 214, 214});
-	mPalette[15] = colors::rgb_to_lab((colors::rgb){242, 242, 242});
+	mPalette[8] = colors::rgb_to_lab({118, 118, 118});
+	mPalette[9] = colors::rgb_to_lab({231, 72, 86});
+	mPalette[10] = colors::rgb_to_lab({22, 198, 12});
+	mPalette[11] = colors::rgb_to_lab({249, 241, 165});
+	mPalette[12] = colors::rgb_to_lab({59, 120, 255});
+	mPalette[13] = colors::rgb_to_lab({180, 0, 158});
+	mPalette[14] = colors::rgb_to_lab({97, 214, 214});
+	mPalette[15] = colors::rgb_to_lab({242, 242, 242});
 
     #ifdef _WIN32
 	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
 	HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
 
 	SetConsoleMode(hout, mOldOutMode);
-	SetConsoleMode(hin, OldInMode);
+	SetConsoleMode(hin, mOldInMode);
     #endif
 
     mInputThread = std::thread(&Console::GetInputLoop, this);
@@ -92,7 +93,7 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
     
     fmt::print(CSI "0;0H");
 
-    for (int y = 0; y < mHeight; y += dY) {
+    for (int y = 0; y <= mHeight; y += dY) {
         fmt::print(CSI "{};0H", y / dY); // Set cursor to beginning of next line
 
         for (int x = 0; x < mWidth; x++) {
@@ -107,8 +108,21 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
 
             }break;
             case MODE_256: {
+                colors::rgb top = buffer[x + mWidth * y];
+                colors::rgb bottom = buffer[x + mWidth * (y + 1)];
 
-            }break;
+                if (colors::compare_rgb(top, oldTop) && colors::compare_rgb(bottom, oldBottom))
+                    fmt::print(RENDERER_PIXEL_CHAR);
+                else if (colors::compare_rgb(top, oldTop))
+                    fmt::print(CSI "48;2;{};{};{}m" RENDERER_PIXEL_CHAR, bottom.r, bottom.g, bottom.b);
+                else if (colors::compare_rgb(bottom, oldBottom))
+                    fmt::print(CSI "38;2;{};{};{}m" RENDERER_PIXEL_CHAR, top.r, top.g, top.b);
+                else
+				    fmt::print(CSI "38;2;{};{};{}m" CSI "48;2;{};{};{}m▀", top.r, top.g, top.b, bottom.r, bottom.g, bottom.b);
+                    
+                oldTop = top;
+                oldBottom = bottom;
+            } break;
             }
         }
     }
@@ -128,8 +142,8 @@ void Console::reset_state() {
 	GetConsoleMode(hin, &dwOgIn);
 	GetConsoleScreenBufferInfo(hout, &csbi);
 
-	og_in_mode = dwOgIn;
-	og_out_mode = dwOgOut;
+	mOldInMode = dwOgIn;
+	mOldOutMode = dwOgOut;
 
 	// set console mode
 	DWORD dwInMode = dwOgIn | ENABLE_VIRTUAL_TERMINAL_INPUT;
@@ -139,8 +153,8 @@ void Console::reset_state() {
 	SetConsoleMode(hin, dwInMode);
 
 	// get console width and height
-	width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-	height = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1) * 2;
+	mWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	mHeight = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1) * 2;
     #elif defined(__unix__) || defined(__APPLE__)
 	struct winsize size;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
@@ -155,14 +169,15 @@ void Console::reset_state() {
 }
 
 void Console::reset_console() {
+    curs_set(1);
     endwin();
 
     #ifdef _WIN32
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
 	HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
 
-	SetConsoleMode(hout, window->og_out_mode);
-	SetConsoleMode(hin, window->og_in_mode);
+	SetConsoleMode(hout, mOldOutMode);
+	SetConsoleMode(hin, mOldInMode);
     #endif
 
     mIsReset = true;

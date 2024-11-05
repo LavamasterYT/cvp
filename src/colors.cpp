@@ -10,10 +10,6 @@ inline float lab_function(float t)
 		return (7.78703703704f * t + 0.137931034483f);
 }
 
-inline uint8_t colors::rgb_to_grayscale(const colors::rgb& c_rgb) {
-	return c_rgb.r * 0.2126f + c_rgb.g * 0.7152f + c_rgb.b * 0.0722f;
-}
-
 colors::xyz colors::rgb_to_xyz(const colors::rgb& c_rgb) {
 	colors::xyz c_xyz;
 	float r, g, b;

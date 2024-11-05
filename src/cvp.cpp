@@ -16,6 +16,15 @@ struct v2 {
 typedef struct v2 v2;
 
 int main() {
+    fmt::println("\x1B[0;0H" "testing");
+    fmt::print("\x1B[" "{};0H@", 18);
+    fmt::print("\x1B[" "{};0H#", 19);
+    fmt::print("\x1B[" "{};0H.", 20);
+    fmt::println("\x1B[0;0H" "testing");
+
+    getchar();
+
+
     std::string file = "/Users/josem/Movies/YouTube/chainsaw.mp4";
 
     Console r;
@@ -27,9 +36,9 @@ int main() {
     std::vector<colors::rgb> buffer(r.width() * r.height());
 
     for (auto& i : buffer) {
-        i.r = 0;
-        i.g = 0;
-        i.b = 0;
+        i.r = 50;
+        i.g = 50;
+        i.b = 50;
     }
 
     pos.x = 0;
@@ -45,7 +54,7 @@ int main() {
         buffer[pos.x + r.width() * pos.y].g = 0;
         buffer[pos.x + r.width() * pos.y].b = 0;
 
-        int key = getch();
+        int key = r.handle_keypress();
 
         if (key == 'q') {
             done = true;

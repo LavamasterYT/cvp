@@ -58,7 +58,9 @@ namespace colors {
 	* @param c_rgb Color to convert.
 	* @returns An 8-bit number representing the grayscale value.
 	*/
-	inline uint8_t rgb_to_grayscale(const rgb& c_rgb);
+	inline uint8_t rgb_to_grayscale(const rgb& c_rgb) {
+		return c_rgb.r * 0.2126f + c_rgb.g * 0.7152f + c_rgb.b * 0.0722f;
+	}
 
 	/*
 	* Converts an RGB color to the XYZ color space.

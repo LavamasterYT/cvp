@@ -20,8 +20,6 @@ class Console {
 
     void GetInputLoop();
 
-    inline float ConvertGrayscale() const;
-
 public:
     /*
     * Different color modes to output to the terminal.
