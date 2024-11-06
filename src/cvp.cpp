@@ -1,5 +1,6 @@
 #include "colors.h"
 #include "console.h"
+#include "avdecoder.h"
 
 #include <fmt/core.h>
 
@@ -19,75 +20,51 @@ typedef struct v2 v2;
 int main() {
     std::string file = "/Users/josem/Movies/YouTube/chainsaw.mp4";
 
-    Console r;
-    v2 pos;
+    Console renderer;
+    AVDecoder decoder;
+    AVDecoder::FrameData frame;
 
-    r.set_mode(Console::ColorMode::MODE_16);
-    r.initialize();
+    renderer.set_mode(Console::ColorMode::MODE_ASCII);
+    renderer.initialize();
 
-    std::vector<colors::rgb> buffer(r.width() * r.height());
+    decoder.open(file.c_str(), true);
+
+    std::vector<colors::rgb> buffer(renderer.width() * renderer.height());
 
     for (auto& i : buffer) {
-        i.r = 7;
-        i.g = 7;
-        i.b = 7;
+        i.r = 0;
+        i.g = 0;
+        i.b = 0;
     }
-
-    pos.x = 0;
-    pos.y = 0;
 
     bool done = false;
 
     while (!done) {
 
-        r.draw(buffer);
+        renderer.draw(buffer);
 
-        buffer[pos.x + r.width() * pos.y].r = 7;
-        buffer[pos.x + r.width() * pos.y].g = 7;
-        buffer[pos.x + r.width() * pos.y].b = 7;
-
-        int key = r.handle_keypress();
+        int key = renderer.handle_keypress();
 
         if (key == 'q') {
             done = true;
         }
-        else if (key == 'w') {
-            pos.y--;
-
-            if (pos.y < 0) {
-                pos.y = r.height() - 1;
-            }
-        }
-        else if (key == 's') {
-            pos.y++;
-
-            if (pos.y >= r.height()) {
-                pos.y = 0;
-            }
-        }
-        else if (key == 'a') {
-            pos.x--;
-
-            if (pos.x < 0) {
-                pos.x = r.width() - 1;
-            }
-        }
-        else if (key == 'd') {
-            pos.x++;
-
-            if (pos.x >= r.width()) {
-                pos.x = 0;
-            }
+        
+        if (decoder.read_frame(frame) != 0) {
+            done = true;
+            break;
         }
 
-        buffer[pos.x + r.width() * pos.y].r = 254;
-        buffer[pos.x + r.width() * pos.y].g = 254;
-        buffer[pos.x + r.width() * pos.y].b = 254;
+        if (frame.stream == AVDECODER_STREAM_VIDEO) {
+            decoder.decode_video(buffer, renderer.width(), renderer.height());
+        }
+        else {
+            decoder.discard_frame(frame);
+        }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+       // std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
-    r.reset_console();
+    renderer.reset_console();
 
     return 0;
 }

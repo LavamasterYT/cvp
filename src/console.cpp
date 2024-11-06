@@ -121,9 +121,6 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
     if (mMode == MODE_256) {
         fmt::print(CSI "38;2;0;0;0m" CSI "48;2;0;0;0m▀");
     }
-    else if (mMode == MODE_16) {
-        // TODO: reset colors
-    }
 
     for (int y = 0; y < mHeight; y += dY) {
         fmt::print(CSI "{};0H", (y / dY) + 1); // Set cursor to beginning of next line
@@ -138,24 +135,21 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
             } break;
             case MODE_16: {
                 int top, bottom;
-                int distance = 1000000;
-                colors::lab current = colors::rgb_to_lab(buffer[x + mWidth * y]);
+                int distanceTop = std::numeric_limits<int>::max();
+                int distanceBottom = distanceTop;
+                colors::lab currentTop = colors::rgb_to_lab(buffer[x + mWidth * y]);
+                colors::lab currentBottom = colors::rgb_to_lab(buffer[x + mWidth * (y + 1)]);
 
                 for (int i = 0; i < mPalette.size(); i++) {
-                    int c = colors::euclidean_lab(current, mPalette[i]);
-                    if (distance > c) {
-                        distance = c;
+                    int t = colors::euclidean_lab(currentTop, mPalette[i]);
+                    int b = colors::euclidean_lab(currentBottom, mPalette[i]);
+
+                    if (distanceTop > t) {
+                        distanceTop = t;
                         top = i <= 7 ? 30 + i : 90 + i % 8;
                     }
-                }
-
-                distance = 1000000;
-                current = colors::rgb_to_lab(buffer[x + mWidth * (y + 1)]);
-
-                for (int i = 0; i < mPalette.size(); i++) {
-                    int c = colors::euclidean_lab(current, mPalette[i]);
-                    if (distance > c) {
-                        distance = c;
+                    if (distanceBottom > b) {
+                        distanceBottom = b;
                         bottom = i <= 7 ? 40 + i : 100 + i % 8;
                     }
                 }
@@ -168,6 +162,9 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
                     fmt::print(CSI "{}m▀", top);
                 else
                     fmt::print(CSI "{}m" CSI "{}m▀", top, bottom);
+
+                oldTop.r = top;
+                oldBottom.r = bottom;
 
             } break;
             case MODE_256: {
