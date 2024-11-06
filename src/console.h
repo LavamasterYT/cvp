@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -74,6 +75,12 @@ public:
     * Sets the render mode for the console
     */
     void set_mode(Console::ColorMode mode);
+
+    /*
+    * Sets the title of the terminal window
+    * @param title The title
+    */
+    void set_title(std::string title);
 
     /*
     * @returns The render width of the console.

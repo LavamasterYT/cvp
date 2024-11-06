@@ -18,13 +18,14 @@ struct v2 {
 typedef struct v2 v2;
 
 int main() {
-    std::string file = "/Users/josem/Movies/YouTube/chainsaw.mp4";
+    //std::string file = "/Users/josem/Movies/YouTube/chainsaw.mp4";
+    std::string file = "D:\\docs\\videos\\oshinoko.mp4";
 
     Console renderer;
     AVDecoder decoder;
     AVDecoder::FrameData frame;
 
-    renderer.set_mode(Console::ColorMode::MODE_ASCII);
+    renderer.set_mode(Console::ColorMode::MODE_256);
     renderer.initialize();
 
     decoder.open(file.c_str(), true);
@@ -39,8 +40,9 @@ int main() {
 
     bool done = false;
 
-    while (!done) {
+    int framecount = 0;
 
+    while (!done) {
         renderer.draw(buffer);
 
         int key = renderer.handle_keypress();
@@ -60,8 +62,6 @@ int main() {
         else {
             decoder.discard_frame(frame);
         }
-
-       // std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     renderer.reset_console();

@@ -11,6 +11,8 @@
 #include <conio.h>
 #include <Windows.h>
 
+#undef max
+
 #elif defined(__unix__) || defined(__APPLE__)
 
 #include <sys/ioctl.h>
@@ -23,6 +25,9 @@
 
 #define ESC "\x1B"
 #define CSI "\x1B["
+
+#define timer_now std::chrono::high_resolution_clock::now()
+#define timer_ms(end, start) std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
 
 Console::Console() : mInputThread { } {
     mIsReset = true;
@@ -112,7 +117,6 @@ void Console::initialize() {
 
 void Console::draw(std::vector<colors::rgb>& buffer) {
 	const char* ascii = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
-    int dY = (mMode == MODE_ASCII) ? 1 : 2; // If ASCII, drawing takes up 1 full character instead of half
     colors::rgb oldTop = { 0, 0, 0 };
     colors::rgb oldBottom = { 0, 0, 0};
     
@@ -122,8 +126,10 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
         fmt::print(CSI "38;2;0;0;0m" CSI "48;2;0;0;0m▀");
     }
 
-    for (int y = 0; y < mHeight; y += dY) {
-        fmt::print(CSI "{};0H", (y / dY) + 1); // Set cursor to beginning of next line
+    auto start = timer_now;
+
+    for (int y = 0; y < mHeight; y += 2) {
+        fmt::print(CSI "{};0H", (y / 2) + 1); // Set cursor to beginning of next line
 
         for (int x = 0; x < mWidth; x++) {
             switch (mMode) {
@@ -182,10 +188,14 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
                     
                 oldTop = top;
                 oldBottom = bottom;
+
             } break;
             }
         }
     }
+
+    auto end = timer_now;
+    set_title(fmt::format("{}", timer_ms(end, start)));
 }
 
 void Console::reset_state() {
@@ -223,9 +233,7 @@ void Console::reset_state() {
 	mHeight = size.ws_row;
     #endif
 
-    if (mMode != MODE_ASCII) {
-		mHeight *= 2;
-	}
+    mHeight *= 2;
 }
 
 void Console::reset_console() {
@@ -250,6 +258,10 @@ void Console::reset_console() {
     mIsReset = true;
 
     mInputThread.join();
+}
+
+void Console::set_title(std::string title) {
+    fmt::print(ESC "]0;{}\x07", title);
 }
 
 int Console::handle_keypress() {
