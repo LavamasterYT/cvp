@@ -26,9 +26,6 @@
 #define ESC "\x1B"
 #define CSI "\x1B["
 
-#define timer_now std::chrono::high_resolution_clock::now()
-#define timer_ms(end, start) std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-
 Console::Console() : mInputThread { } {
     mIsReset = true;
     mWidth = 0;
@@ -126,8 +123,6 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
         fmt::print(CSI "38;2;0;0;0m" CSI "48;2;0;0;0m▀");
     }
 
-    auto start = timer_now;
-
     for (int y = 0; y < mHeight; y += 2) {
         fmt::print(CSI "{};0H", (y / 2) + 1); // Set cursor to beginning of next line
 
@@ -193,9 +188,6 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
             }
         }
     }
-
-    auto end = timer_now;
-    set_title(fmt::format("{}", timer_ms(end, start)));
 }
 
 void Console::reset_state() {

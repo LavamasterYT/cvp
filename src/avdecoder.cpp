@@ -66,7 +66,7 @@ int AVDecoder::open(const char* file, bool openAudioStream) {
     if (ret < 0)
         return AVDECODER_ERROR_CODEC_CTX;
     if (openAudioStream)
-        if (avcodec_parameters_to_context(mAudioCtx, mFormatCtx->streams[mVideoIndex]->codecpar))
+        if (avcodec_parameters_to_context(mAudioCtx, mFormatCtx->streams[mAudioIndex]->codecpar))
             return AVDECODER_ERROR_CODEC_CTX;
     
     // Setup multithreading
@@ -110,20 +110,30 @@ int AVDecoder::read_frame(AVDecoder::FrameData& frame) {
             frame.codec_ctx = mVideoCtx;
         }
         else if (mPacket->stream_index == mAudioIndex) {
-            if (avcodec_send_packet(mAudioCtx, mPacket) || avcodec_receive_frame(mAudioCtx, mRawFrame)) {
+            if (avcodec_send_packet(mAudioCtx, mPacket)) {
+                av_packet_unref(mPacket);
+                continue;
+            }
+            if (avcodec_receive_frame(mAudioCtx, mRawFrame)) {
                 av_packet_unref(mPacket);
                 continue;
             }
             frame.codec_ctx = mAudioCtx;
         }
 
-        av_packet_unref(mPacket);
-
         // Set approriate fields and return
         frame.format_ctx = mFormatCtx;
         frame.stream = mPacket->stream_index == mVideoIndex ? AVDECODER_STREAM_VIDEO : AVDECODER_STREAM_AUDIO;
         frame.frame = mRawFrame;
-        frame.pts = mRawFrame->pts * av_q2d(mFormatCtx->streams[mPacket->stream_index]->time_base);
+
+        if (mPacket->dts != AV_NOPTS_VALUE) {
+            frame.pts = mRawFrame->pts * av_q2d(mFormatCtx->streams[mPacket->stream_index]->time_base);
+        }
+        else {
+            frame.pts = 0;
+        }
+
+        av_packet_unref(mPacket);
 
         return 0;
     }
@@ -222,4 +232,8 @@ double AVDecoder::fps() {
 
 int AVDecoder::duration() {
     return mFormatCtx->duration / 1000;
+}
+
+AVCodecContext* AVDecoder::get_audio_context() {
+    return mAudioCtx;
 }

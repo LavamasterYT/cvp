@@ -66,4 +66,6 @@ public:
 	double fps();
 
 	int duration();
+
+	AVCodecContext* get_audio_context();
 };
