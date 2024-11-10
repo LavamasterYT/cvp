@@ -9,61 +9,75 @@ Binaries should be provided "hopefully" for the latest release.
 I can't guarantee that the binaries will run successfully, so I recommend that you build this yourself.
 
 ## Building
-Instructions basically follow this order:
-- Download development tools (gcc, make, cmake, Visual Studio, etc)
-- Install necessary libraries (FFmpeg, libavcodec, libavformat, libavutil, libswscale, sdl2)
-- Build the source files inside the src directory and link with libraries above
 
-### Debian/Ubuntu
-Update apt:
-```
-sudo apt-get update
-```
-Download the necessary libararies and tools:
-```
-sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libmpv-dev build-essential pkg-config
-```
-Finally, build using make:
-```
-make
-```
+I finally got proper build instructions.
 
-### Other Linux Distros
-Other distros are going to be different, but here is the gist:
-- Install gcc, make, and pkg-config
-- Install the necessary libraries (libavcodec, libavformat, libavutil, libswscale, libmpv, mpv, ffmpeg)
-- Build using Cmake
+Install the necessary dependencies. There may be more required than the listed ones below based on your OS/distro.
+Check with your distro/OS to make sure you got everything needed to run correctly.
 
-### macOS
+<details>
+<summary>Windows</summary>
+
+I recommend using Visual Studio for building, but you could in theory use any IDE that can support CMake.
+
+Download [CMake](https://cmake.org/download/) and [Git](https://github.com/git-for-windows/git).
+
+If using Visual Studio, make sure you have the proper C++ packages installed.
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
 Install the Xcode command line tools:
 ```
 xcode-select --install
 ```
-Install the needed dependencies:
-```
-brew install ffmpeg sdl2 cmake
-```
-Finally, build using make:
-```
-make
-```
-If for some reason it doesn't want to build, do the following steps:
-- With pkg-config, run `pkg-config --libs libavcodec libavformat libavutil libswscale mpv`
-- Build by running `gcc *.c <output of pkg-config command> -o cvp`
 
-> If you don't have brew, install it [here](https://brew.sh/).
+Make sure you install [brew](https://brew.sh/).
 
-### Windows
-Unfourtunately, I could not find a way to build this on Windows with Makefile, however, you could use Visual Studio Community and `vcpkg` to build this project:
-- Download and install [Visual Studio Community](https://visualstudio.microsoft.com/downloads/)
-- Clone [vcpkg](https://github.com/microsoft/vcpkg) to a safe directory.
-- Navigate to the directory you cloned vcpkg to, and run `bootstrap-vcpkg.bat`
-- Install the FFmpeg libraries by running `vcpkg install ffmpeg`
-- Download the [mpv](https://github.com/mpv-player/mpv) development libraries for Windows
-- Integrate vcpkg with Visual Studio by running `vcpkg integrate install`
-- Create a new project in Visual Studio, and add the source files to the project.
-- Link mpv libraries to the project.
-- Build is as you would normally build a project in Visual Studio.
+Install `cmake`:
+```
+brew install cmake
+```
+
+</details>
+
+<details>
+<summary>Linux</summary>
+
+Make sure you install `cmake` and `git` for building and cloning. Also make sure you have
+some developer tools installed like a C++ compiler/linker, etc.
+
+</details>
+
+
+Afterwards, building should be straightforward.
+
+Clone the GitHub repository along with the submodules:
+```
+~ $ git clone --recursive https://github.com/LavamasterYT/cvp
+```
+
+Go into the directory and setup `vcpkg`:
+```
+~ $ cd cvp/vcpkg
+
+# Windows:
+~/cvp/vcpkg $ .\bootstrap-vcpkg.bat
+
+# macOS/Linux
+~/cvp/vcpkg $ ./bootstrap-vcpkg.sh
+```
+
+Create the build directory:
+```
+~/cvp/vcpkg $ cd ..
+~/cvp $ mkdir build && cd build
+```
+
+
+
 
 ## Usage
 To play a video file, run the following command:

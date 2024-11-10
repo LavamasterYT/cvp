@@ -7,19 +7,24 @@
 
 #include "colors.h"
 
+/**
+ * @brief A class to manipulate the console
+ * 
+ * Manipulates the console to render an RGB buffer, and handle key input.
+ */
 class Console {
 
-    bool mIsReset;
-    long mOldOutMode;
-    long mOldInMode;
-    int mWidth;
-    int mHeight;
+    bool mIsReset; // Internal state to check if console is modified or not.
+    long mOldOutMode; // Windows variable, old console out state.
+    long mOldInMode; // Windows variable, old console in state.
+    int mWidth; // Internal width
+    int mHeight; // Internal height
 
-    std::atomic<int> mKeypress;
-    std::vector<colors::lab> mPalette;
+    std::atomic<int> mKeypress; // Latest key that was pressed
+    std::vector<colors::lab> mPalette; // 16 color palette already converted.
     std::thread mInputThread;
 
-    void GetInputLoop();
+    void GetInputLoop(); // Main loop for keypresses
 
 public:
     /*
