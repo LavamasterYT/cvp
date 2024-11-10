@@ -76,7 +76,11 @@ Create the build directory:
 ~/cvp $ mkdir build && cd build
 ```
 
-
+Build the project files using CMake. This can differ based on what type of project files you want. For Makefile:
+```
+~/cvp/build $ cmake ..
+~/cvp/build $ make
+```
 
 
 ## Usage
