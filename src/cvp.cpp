@@ -4,6 +4,7 @@
 #include "console.h"
 #include "timer.h"
 
+#include <CLI/CLI.hpp>
 #include <fmt/core.h>
 
 #include <chrono>
@@ -12,22 +13,47 @@
 #include <thread>
 #include <vector>
 
-int main() {
-    std::string file = "/Users/josem/Movies/YouTube/new.mp4";
-    //std::string file = "D:\\docs\\videos\\oshinoko.mp4";
+int main(int argc, char** argv) {
+    CLI::App app {"Plays multimedia files in the command line."};
+    argv = app.ensure_utf8(argv);
+
+    std::map<std::string, Console::ColorMode> modeMap = {
+        {"ascii", Console::ColorMode::MODE_ASCII},
+        {"palette", Console::ColorMode::MODE_16},
+        {"rgb", Console::ColorMode::MODE_256}
+    };
+
+    std::string file = "";
+    Console::ColorMode mode;
+    bool playAudio = false;
+
+    app.add_option("file", file, "The input file to play")->required();
+    app.add_option("-m, --mode", mode, "Sets the render mode (ascii, palette, rgb)")
+        ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case))
+        ->default_val(Console::ColorMode::MODE_ASCII);
+    app.add_flag("-a,--audio", playAudio, "Plays audio");
+
+    CLI11_PARSE(app, argc, argv);
 
     Console renderer;
     AVDecoder decoder;
 
-    renderer.set_mode(Console::ColorMode::MODE_256);
+    decoder.open(file.c_str(), playAudio);
+
+    renderer.set_mode(mode);
     renderer.initialize();
-    decoder.open(file.c_str(), true);
 
     Audio audio(decoder.get_audio_context());
+
+    if (playAudio) {
+        playAudio = audio.init();
+    }
 
     std::vector<colors::rgb> buffer(renderer.width() * renderer.height());
 
     AVDecoder::FrameData frame;
+
+    int err;
 
     bool done = false;
     bool paused = false;
@@ -36,6 +62,7 @@ int main() {
 
     auto start = timer::now();
     auto pauseDelta = timer::now();
+    auto targetTime = start;
 
     while (!done) {
         int key = renderer.handle_keypress();
@@ -59,24 +86,30 @@ int main() {
             continue;
         }
 
-        if (decoder.read_frame(frame) != 0) {
+        err = decoder.read_frame(frame);
+
+        if (err != 0) {
             done = true;
             break;
         }
 
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
-            audio.play(frame.frame);
+            if (playAudio)
+                audio.play(frame.frame);
         } else {
             frameCount++;
-            auto elapsed = timer::ms(start, timer::now());
+            targetTime += std::chrono::milliseconds(static_cast<int>(fpsMs));
+
+            auto currentTime = timer::now();
+            auto elapsed = timer::ms(start, currentTime);
             auto frameMs = fpsMs * frameCount;
 
             int diff = elapsed - frameMs;
 
-            if (diff < 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(-diff));
-            }
-            else if (diff > 0.2) {
+            if (currentTime < targetTime) {
+                std::this_thread::sleep_until(targetTime);
+            } else if ((currentTime - targetTime) > std::chrono::milliseconds(50)) {
+                targetTime = currentTime;
                 continue;
             }
 

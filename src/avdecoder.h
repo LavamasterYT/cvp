@@ -26,6 +26,10 @@ enum AVDecoder_Stream {
 	AVDECODER_STREAM_VIDEO
 };
 
+/**
+ * @brief A simple audio/video decoder
+ * Decodes video and audio files into packets that can be used for simple playback
+ */
 class AVDecoder {
 
 private:

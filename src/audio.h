@@ -24,6 +24,7 @@ public:
     Audio(AVCodecContext* ctx);
     ~Audio();
 
+    bool init();
     void play(AVFrame* frame);
     double get_clock();
 };

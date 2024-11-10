@@ -51,8 +51,12 @@ int AVDecoder::open(const char* file, bool openAudioStream) {
     mVideoIndex = av_find_best_stream(mFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &mVideoCodec, 0);
     if (openAudioStream)
         mAudioIndex = av_find_best_stream(mFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &mAudioCodec, 0);
-    if (mVideoIndex < 0 || (mAudioIndex < 0 && openAudioStream))
+    if (mVideoIndex < 0)
         return AVDECODER_ERROR_STREAM;
+
+    if (mAudioIndex < 0 && openAudioStream) {
+        openAudioStream = false;
+    }
 
     // Allocate codec context
     mVideoCtx = avcodec_alloc_context3(mVideoCodec);

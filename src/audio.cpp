@@ -14,19 +14,6 @@ Audio::Audio(AVCodecContext* ctx) {
     mBuffer = nullptr;
     mSampledFrame = av_frame_alloc();
     mSampler = swr_alloc();
-
-    swr_alloc_set_opts2(&mSampler, &mCtx->ch_layout, AV_SAMPLE_FMT_S16, 44100, &mCtx->ch_layout, mCtx->sample_fmt, mCtx->sample_rate, 0, NULL);
-    swr_init(mSampler);
-
-    SDL_SetMainReady();
-    SDL_Init(SDL_INIT_AUDIO);
-    SDL_AudioSpec want;
-    SDL_zero(want);
-    want.freq = 44100;
-    want.channels = mCtx->ch_layout.nb_channels;
-    want.format = AUDIO_S16SYS;
-    mDev = SDL_OpenAudioDevice(NULL, 0, &want, &mSpec, 0);
-    SDL_PauseAudioDevice(mDev, 0);
 }
 
 Audio::~Audio() {
@@ -39,6 +26,28 @@ Audio::~Audio() {
         SDL_CloseAudioDevice(mDev);
         SDL_Quit();
     }
+}
+
+bool Audio::init() {
+    if (mCtx == nullptr)
+        return false;
+
+    swr_alloc_set_opts2(&mSampler, &mCtx->ch_layout, AV_SAMPLE_FMT_S16, 44100, &mCtx->ch_layout, mCtx->sample_fmt, mCtx->sample_rate, 0, NULL);
+    swr_init(mSampler);
+
+    SDL_SetMainReady();
+    if (SDL_Init(SDL_INIT_AUDIO))
+        return false;
+
+    SDL_AudioSpec want;
+    SDL_zero(want);
+    want.freq = 44100;
+    want.channels = mCtx->ch_layout.nb_channels;
+    want.format = AUDIO_S16SYS;
+    mDev = SDL_OpenAudioDevice(NULL, 0, &want, &mSpec, 0);
+    SDL_PauseAudioDevice(mDev, 0);
+
+    return mDev > 0;
 }
 
 void Audio::play(AVFrame* frame) {

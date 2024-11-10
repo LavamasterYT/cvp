@@ -2,6 +2,7 @@
   "dependencies": [
     "fmt",
     "sdl2",
-    "ffmpeg"
+    "ffmpeg",
+    "cli11"
   ]
 }
