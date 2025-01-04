@@ -19,6 +19,7 @@ private:
     AVFrame* mSampledFrame;
     SwrContext* mSampler;
     uint8_t* mBuffer;
+    int mTotalBytesSubmitted;
 
 public:
     Audio(AVCodecContext* ctx);

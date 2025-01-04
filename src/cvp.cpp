@@ -64,7 +64,8 @@ int main(int argc, char** argv) {
     auto pauseDelta = timer::now();
     auto targetTime = start;
 
-    while (!done) {
+    while (!done) 
+    {
         int key = renderer.handle_keypress();
         if (key == 'q') {
             done = true;
@@ -87,35 +88,42 @@ int main(int argc, char** argv) {
         }
 
         err = decoder.read_frame(frame);
-
         if (err != 0) {
             done = true;
             break;
         }
 
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
-            if (playAudio)
+            if (playAudio) {
                 audio.play(frame.frame);
-        } else {
-            frameCount++;
-            targetTime += std::chrono::milliseconds(static_cast<int>(fpsMs));
-
-            auto currentTime = timer::now();
-            auto elapsed = timer::ms(start, currentTime);
-            auto frameMs = fpsMs * frameCount;
-
-            int diff = elapsed - frameMs;
-
-            if (currentTime < targetTime) {
-                std::this_thread::sleep_until(targetTime);
-            } else if ((currentTime - targetTime) > std::chrono::milliseconds(50)) {
-                targetTime = currentTime;
-                continue;
             }
-
-            decoder.decode_video(buffer, renderer.width(), renderer.height());
-            renderer.draw(buffer);
+            continue;
         }
+
+        double framePTS = frame.pts;
+
+        double masterClock = 0.0;
+        if (playAudio) {
+            masterClock = audio.get_clock();
+        }
+        else {
+            auto now = timer::now();
+            double elapsedMs = timer::ms(start, now);
+            masterClock = elapsedMs / 1000.0;
+        }
+
+        double diff = framePTS - masterClock;
+
+        if (diff > 0) {
+            auto sleepDuration = std::chrono::duration<double>(diff);
+            std::this_thread::sleep_for(sleepDuration);
+        }
+        else {
+            continue;
+        }
+
+        decoder.decode_video(buffer, renderer.width(), renderer.height());
+        renderer.draw(buffer);
     }
 
     renderer.reset_console();

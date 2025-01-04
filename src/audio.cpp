@@ -14,6 +14,7 @@ Audio::Audio(AVCodecContext* ctx) {
     mBuffer = nullptr;
     mSampledFrame = av_frame_alloc();
     mSampler = swr_alloc();
+    mTotalBytesSubmitted = 0;
 }
 
 Audio::~Audio() {
@@ -71,6 +72,7 @@ void Audio::play(AVFrame* frame) {
         return;
     }
 
+    mTotalBytesSubmitted += frame->nb_samples * (mSpec.channels * sizeof(int16_t));
     SDL_QueueAudio(mDev, mSampledFrame->data[0], mSampledFrame->linesize[0]);
     
     av_frame_unref(frame);
@@ -78,8 +80,12 @@ void Audio::play(AVFrame* frame) {
     av_freep(&mBuffer);
 }
 
-double Audio::get_clock() {
-    int playedBytes = SDL_GetQueuedAudioSize(mDev);
-    double playedTime = static_cast<double>(playedBytes) / (mSpec.freq * mSpec.channels * sizeof(int16_t));
+double Audio::get_clock()
+{
+    int queuedBytes = SDL_GetQueuedAudioSize(mDev);
+    int bytesPlayed = mTotalBytesSubmitted - queuedBytes;
+    double playedTime = static_cast<double>(bytesPlayed)
+        / (mSpec.freq * mSpec.channels * sizeof(int16_t));
+
     return playedTime;
 }
