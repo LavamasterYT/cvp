@@ -2,8 +2,9 @@
 #include "avdecoder.h"
 #include "colors.h"
 #include "console.h"
-#include "timer.h"
 #include "config.h"
+#include "timer.h"
+#include "settings.h"
 
 #include <CLI/CLI.hpp>
 #include <fmt/core.h>
@@ -24,11 +25,11 @@ int handle_args(int argc, char** argv) {
         {"rgb", Console::ColorMode::MODE_256}
     };
 
-    app.add_option("file", config::file, "The input file to play")->required();
-    app.add_option("-m, --mode", config::colorMode, "Sets the render mode (ascii, palette, rgb)")
+    app.add_option("file", settings::file, "The input file to play")->required();
+    app.add_option("-m, --mode", settings::colorMode, "Sets the render mode (ascii, palette, rgb)")
         ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case))
         ->default_val(Console::ColorMode::MODE_ASCII);
-    app.add_flag("-a,--audio", config::playAudio, "Plays audio");
+    app.add_flag("-a,--audio", settings::playAudio, "Plays audio");
 
     CLI11_PARSE(app, argc, argv);
     return 0;
@@ -38,20 +39,41 @@ int main(int argc, char** argv) {
     if (handle_args(argc, argv) != 0)
         return -1;
 
+    config::conffile conf("cvp", "cvp");
+
+    conf.add_option("audio", settings::playAudio);
+    conf.add_option("debug", settings::debug);
+    conf.add_option("ui", settings::showUI);
+
+    fmt::println("Before:");
+    fmt::println("Audio: {}", settings::playAudio);
+    fmt::println("Debug: {}", settings::debug);
+    fmt::println("Show UI: {}", settings::showUI);
+
+    if (conf.parse())
+        fmt::println("{}", conf.get_last_error());
+
+    fmt::println("\nAfter:");
+    fmt::println("Audio: {}", settings::playAudio);
+    fmt::println("Debug: {}", settings::debug);
+    fmt::println("Show UI: {}", settings::showUI);
+
+    return 0;
+
     Console renderer;
     AVDecoder decoder;
 
-    if (decoder.open(config::file.c_str(), config::playAudio)) {
-        fmt::println("An error occurred opening file: {}", config::file);
+    if (decoder.open(settings::file.c_str(), settings::playAudio)) {
+        fmt::println("An error occurred opening file: {}", settings::file);
         return -1;
     }
 
-    renderer.set_mode(config::colorMode);
+    renderer.set_mode(settings::colorMode);
     renderer.initialize();
 
     Audio audio(decoder.get_audio_context());
 
-    if (config::playAudio)
+    if (settings::playAudio)
         audio.init();
 
     std::vector<colors::rgb> buffer(renderer.width() * renderer.height());
@@ -94,12 +116,12 @@ int main(int argc, char** argv) {
             audio.clear_queue();
             break;
         case 'm':
-            int cmode = (int)config::colorMode;
+            int cmode = (int)settings::colorMode;
             cmode++;
             if (cmode > 2)
                 cmode = 0;
-            config::colorMode = (Console::ColorMode)cmode;
-            renderer.set_mode(config::colorMode);
+            settings::colorMode = (Console::ColorMode)cmode;
+            renderer.set_mode(settings::colorMode);
             break;
         }
 
