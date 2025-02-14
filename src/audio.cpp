@@ -51,6 +51,11 @@ bool Audio::init() {
 }
 
 void Audio::play(AVFrame* frame) {
+    if (mDev <= 0) {
+        av_frame_unref(frame);
+        return;
+    }
+
     int dstSamples = frame->ch_layout.nb_channels * av_rescale_rnd(swr_get_delay(mSampler, frame->sample_rate) + frame->nb_samples, 44100, frame->sample_rate, AV_ROUND_UP);
     int ret = av_samples_alloc(&mBuffer, nullptr, 1, dstSamples, AV_SAMPLE_FMT_S16, 1);
 
@@ -79,11 +84,19 @@ void Audio::play(AVFrame* frame) {
 }
 
 double Audio::get_queued_time() {
+    if (mDev <= 0) {
+        return 0.0;
+    }
+
     int playedBytes = SDL_GetQueuedAudioSize(mDev);
     double playedTime = static_cast<double>(playedBytes) / (mSpec.freq * mSpec.channels * sizeof(int16_t));
     return playedTime;
 }
 
 void Audio::clear_queue() {
+    if (mDev <= 0) {
+        return;
+    }
+
     SDL_ClearQueuedAudio(mDev);
 }

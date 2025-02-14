@@ -3,6 +3,7 @@
 #include "colors.h"
 #include "console.h"
 #include "timer.h"
+#include "config.h"
 
 #include <CLI/CLI.hpp>
 #include <fmt/core.h>
@@ -13,7 +14,7 @@
 #include <thread>
 #include <vector>
 
-int main(int argc, char** argv) {
+int handle_args(int argc, char** argv) {
     CLI::App app {"Plays multimedia files in the command line."};
     argv = app.ensure_utf8(argv);
 
@@ -23,37 +24,37 @@ int main(int argc, char** argv) {
         {"rgb", Console::ColorMode::MODE_256}
     };
 
-    std::string file = "";
-    Console::ColorMode mode;
-    bool playAudio = false;
-
-    app.add_option("file", file, "The input file to play")->required();
-    app.add_option("-m, --mode", mode, "Sets the render mode (ascii, palette, rgb)")
+    app.add_option("file", config::file, "The input file to play")->required();
+    app.add_option("-m, --mode", config::colorMode, "Sets the render mode (ascii, palette, rgb)")
         ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case))
         ->default_val(Console::ColorMode::MODE_ASCII);
-    app.add_flag("-a,--audio", playAudio, "Plays audio");
+    app.add_flag("-a,--audio", config::playAudio, "Plays audio");
 
     CLI11_PARSE(app, argc, argv);
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    if (handle_args(argc, argv) != 0)
+        return -1;
 
     Console renderer;
     AVDecoder decoder;
 
-    decoder.open(file.c_str(), playAudio);
+    if (decoder.open(config::file.c_str(), config::playAudio)) {
+        fmt::println("An error occurred opening file: {}", config::file);
+        return -1;
+    }
 
-    renderer.set_mode(mode);
+    renderer.set_mode(config::colorMode);
     renderer.initialize();
 
     Audio audio(decoder.get_audio_context());
 
-    if (playAudio) {
-        playAudio = audio.init();
-    }
+    if (config::playAudio)
+        audio.init();
 
     std::vector<colors::rgb> buffer(renderer.width() * renderer.height());
-
-    AVDecoder::FrameData frame;
-
-    int err;
 
     bool done = false;
     bool paused = false;
@@ -65,28 +66,41 @@ int main(int argc, char** argv) {
 
     while (!done) {
         int key = renderer.handle_keypress();
-        if (key == 'q') {
+
+        switch (key) {
+        case 'q':
             done = true;
-        } else if (key == ' ') {
+            break;
+        case ' ':
             paused = !paused;
             if (paused) {
+                audio.clear_queue();
                 pauseDelta = timer::now();
             } else {
                 auto diff = timer::now() - pauseDelta;
                 start += diff;
             }
-        }
-        else if (key == 'a') {
-            decoder.seek(-5000);
+            break;
+        case 'a':
             start = start + std::chrono::milliseconds(5000);
-            if (playAudio)
-                audio.clear_queue();
-        }
-        else if (key == 'd') {
-            decoder.seek(5000);
+            if (timer::ms(start, timer::now()) < 0)
+                start = timer::now();
+            decoder.seek(-5000);
+            audio.clear_queue();
+            break;
+        case 'd':
             start = start - std::chrono::milliseconds(5000);
-            if (playAudio)
-                audio.clear_queue();
+            decoder.seek(5000);
+            audio.clear_queue();
+            break;
+        case 'm':
+            int cmode = (int)config::colorMode;
+            cmode++;
+            if (cmode > 2)
+                cmode = 0;
+            config::colorMode = (Console::ColorMode)cmode;
+            renderer.set_mode(config::colorMode);
+            break;
         }
 
         if (paused) {
@@ -102,27 +116,18 @@ int main(int argc, char** argv) {
         }
 
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
-            if (playAudio) {
-                audio.play(frame.frame);
-
-                if (audio.get_queued_time() > 0.1) {
-                    audio.clear_queue();
-                }
-            }
-            
+            audio.play(frame.frame);
             continue; // The audio player automatically discards the frame.
         }
 
-        int ms_elapsed = timer::ms(start, timer::now());
+        int64_t ms_elapsed = timer::ms(start, timer::now());
         double s_elapsed = timer::ms(start, timer::now()) / 1000.0f;
 
         // Occasionally every second, resync to account for any drift
-        if (ms_elapsed / 1000 > syncCounter) {
-            syncCounter = ms_elapsed / 1000;
+        if (ms_elapsed / 2000 > syncCounter) {
+            syncCounter = ms_elapsed / 2000;
             audio.clear_queue();
         }
-
-        renderer.set_title(fmt::format("pts: {:.2f} | elapsed: {:.2f}", frame.pts, s_elapsed));
 
         if (frame.pts > s_elapsed) { // ahead
             double diff = frame.pts - s_elapsed;
@@ -130,9 +135,8 @@ int main(int argc, char** argv) {
             
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(diff)));
         }
-        else { // behind
+        else // behind
             continue;
-        }
 
         // Decode and render video
         decoder.decode_video(buffer, renderer.width(), renderer.height());

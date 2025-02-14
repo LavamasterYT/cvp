@@ -133,9 +133,10 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
     fmt::print(CSI "0;0H");
 
     // Reset the color
-    if (mMode == MODE_256) {
+    if (mMode == MODE_256)
         fmt::print(CSI "38;2;0;0;0m" CSI "48;2;0;0;0m▀");
-    }
+    else if (mMode == MODE_ASCII)
+        fmt::print(ESC "[0m");
 
     for (int y = 0; y < mHeight; y += 2) {
         fmt::print(CSI "{};0H", (y / 2) + 1); // Set cursor to beginning of next line

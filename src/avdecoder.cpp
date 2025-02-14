@@ -54,9 +54,8 @@ int AVDecoder::open(const char* file, bool openAudioStream) {
     if (mVideoIndex < 0)
         return AVDECODER_ERROR_STREAM;
 
-    if (mAudioIndex < 0 && openAudioStream) {
+    if (mAudioIndex < 0 && openAudioStream)
         openAudioStream = false;
-    }
 
     // Allocate codec context
     mVideoCtx = avcodec_alloc_context3(mVideoCodec);
@@ -99,7 +98,7 @@ int AVDecoder::read_frame(AVDecoder::FrameData& frame) {
         if (av_read_frame(mFormatCtx, mPacket) != 0)
             return AVDECODER_ERROR_EOF;
         
-        // Is audio or video stream
+        // Is audio or video stream?
         if (!(mPacket->stream_index == mVideoIndex || mPacket->stream_index == mAudioIndex)) {
             av_packet_unref(mPacket);
             continue; // If not, next frame please
@@ -130,12 +129,10 @@ int AVDecoder::read_frame(AVDecoder::FrameData& frame) {
         frame.stream = mPacket->stream_index == mVideoIndex ? AVDECODER_STREAM_VIDEO : AVDECODER_STREAM_AUDIO;
         frame.frame = mRawFrame;
 
-        if (mPacket->dts != AV_NOPTS_VALUE) {
+        if (mPacket->dts != AV_NOPTS_VALUE)
             frame.pts = mRawFrame->pts * av_q2d(mFormatCtx->streams[mPacket->stream_index]->time_base);
-        }
-        else {
+        else
             frame.pts = 0;
-        }
 
         av_packet_unref(mPacket);
 
@@ -211,13 +208,12 @@ void AVDecoder::decode_video(std::vector<colors::rgb>& buffer, int width, int he
 }
 
 int64_t AVDecoder::seek(int64_t ms) {
-	// I have no clue how it works and i forgot how it works sorry
-    int64_t frame = (int64_t)(ms * fps() / 1000.0);
-
-	double sec = frame / fps();
+    int64_t frame = (int64_t)(ms * fps() / 1000.0); // Convert the milliseconds to the number of frames to seek
+	double sec = frame / fps(); // Convert the frames to seconds (I think I can just convert from ms to sec
+                                // instead of converting to frames first?)
 	int64_t ts = mFormatCtx->streams[mVideoIndex]->start_time;
 	double tb = av_q2d(mFormatCtx->streams[mVideoIndex]->time_base);
-	ts += (int64_t)(sec / tb + 0.5);
+	ts += (int64_t)(sec / tb + 0.5); // Convert all that to a timestamp to sync to
 
 	av_seek_frame(mFormatCtx, mVideoIndex, ts, AVSEEK_FLAG_BACKWARD);
 	avcodec_flush_buffers(mVideoCtx);
@@ -226,9 +222,8 @@ int64_t AVDecoder::seek(int64_t ms) {
 }
 
 double AVDecoder::fps() {
-    if (mVideoIndex < 0 || mFormatCtx == nullptr) {
+    if (mVideoIndex < 0 || mFormatCtx == nullptr)
         return 0;
-    }
 
     AVRational framerate = av_guess_frame_rate(mFormatCtx, mFormatCtx->streams[mVideoIndex], nullptr);
     return av_q2d(framerate);

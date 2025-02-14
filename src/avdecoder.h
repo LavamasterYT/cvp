@@ -46,12 +46,12 @@ private:
 	const AVCodec* mVideoCodec;
 
 public:
-	struct FrameData{
-		double pts;
-		int stream;
-		AVFrame* frame;
-		AVCodecContext* codec_ctx;
-		AVFormatContext* format_ctx;
+	struct FrameData {
+		double pts; // The pts of the frame that was read.
+		int stream; // The type of stream that is stored.
+		AVFrame* frame; // The raw frame.
+		AVCodecContext* codec_ctx; // The respective codec context of the frame.
+		AVFormatContext* format_ctx; // The format context of the file.
 	};
 
 	/**
@@ -100,6 +100,12 @@ public:
 	 */
 	void decode_video(std::vector<colors::rgb>& buffer, int width, int height);
 
+	/**
+	 * @brief Seeks the video forward or backward.
+	 * 
+	 * @param ms The amount of time in milliseconds to seek by. Can be negative or positive.
+	 * @return int64_t The frame number it seeked to.
+	 */
 	int64_t seek(int64_t ms);
 
 	/**
