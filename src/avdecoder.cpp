@@ -143,8 +143,8 @@ int AVDecoder::read_frame(AVDecoder::FrameData& frame) {
     }
 }
 
-void AVDecoder::discard_frame(AVDecoder::FrameData& frame) {
-    av_frame_unref(frame.frame);
+void AVDecoder::discard_frame() {
+    av_frame_unref(mRawFrame);
 }
 
 void AVDecoder::decode_video(std::vector<colors::rgb>& buffer, int width, int height) {

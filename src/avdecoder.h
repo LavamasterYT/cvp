@@ -54,22 +54,74 @@ public:
 		AVFormatContext* format_ctx;
 	};
 
+	/**
+	 * @brief Construct a new AVDecoder object
+	 * Initializes any variables that need to be initalized.
+	 */
 	AVDecoder();
 	~AVDecoder();
 
+	/**
+	 * @brief Opens a file to be decoded.
+	 * 
+	 * Open and reads the default (best) streams of the input file and initializes
+	 * the necessary decoders needed for decoding the video and audio if needed.
+	 * 
+	 * @param file The path to the file to open.
+	 * @param openAudioStream If set true, initialize an audio decoder too if audio stream exists.
+	 * @return 0 on success, else AVDecoder_Error on error.
+	 */
 	int open(const char* file, bool openAudioStream);
 
+	/**
+	 * @brief Reads the next valid audio or video frame from the file. 
+	 * Continues reading the next frame, skipping any errornous, invalid, or non-selected frames.
+	 * Sets the passed in FrameData struct data to appropriate values:
+	 * - Sets codec_ctx to the audio or video context, depending on the frame read.
+	 * - Sets frame to the raw frame read from the decoder.
+	 * - Sets stream to the stream index of the frame read.
+	 * - Sets pts to the pts of the frame read *times* the time base of the video.
+	 * @param frame A FrameData struct to store frame information.
+	 * @return int AVDECODER_ERROR_EOF on error or end of file.
+	 */
 	int read_frame(AVDecoder::FrameData& frame);
 
-	void discard_frame(AVDecoder::FrameData& frame);
+	/**
+	 * @brief Discards the frame freeing any allocated buffers if any in the underlying decoder.
+	 */
+	void discard_frame();
 
+	/**
+	 * @brief Reads the raw video frame to a buffer.
+	 * Decodes and scales up or down the video frame to an RGB buffer. It also discards the frame after its done decoding.
+	 * @param buffer The buffer to write the decoded video to.
+	 * @param width The width to scale the video to.
+	 * @param height The height to scale the video to.
+	 */
 	void decode_video(std::vector<colors::rgb>& buffer, int width, int height);
 
 	int64_t seek(int64_t ms);
 
+	/**
+	 * @brief Gets the framerate of the video by using av_guess_frame_rate.
+	 * 
+	 * Uses av_q2d to convert the rational to a double.
+	 * 
+	 * @return double The framerate of the video.
+	 */
 	double fps();
 
+	/**
+	 * @brief Self-explanitory
+	 * 
+	 * @return int 
+	 */
 	int duration();
 
+	/**
+	 * @brief Get the audio context object
+	 * 
+	 * @return AVCodecContext* 
+	 */
 	AVCodecContext* get_audio_context();
 };

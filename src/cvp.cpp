@@ -57,29 +57,36 @@ int main(int argc, char** argv) {
 
     bool done = false;
     bool paused = false;
-    double fpsMs = 1.0 / decoder.fps() * 1000;
-    uint64_t frameCount = 0;
+
+    int syncCounter = 0;
 
     auto start = timer::now();
     auto pauseDelta = timer::now();
-    auto targetTime = start;
 
-    while (!done) 
-    {
+    while (!done) {
         int key = renderer.handle_keypress();
         if (key == 'q') {
             done = true;
-        }
-        else if (key == ' ') {
+        } else if (key == ' ') {
             paused = !paused;
-
             if (paused) {
                 pauseDelta = timer::now();
-            }
-            else {
+            } else {
                 auto diff = timer::now() - pauseDelta;
                 start += diff;
             }
+        }
+        else if (key == 'a') {
+            decoder.seek(-5000);
+            start = start + std::chrono::milliseconds(5000);
+            if (playAudio)
+                audio.clear_queue();
+        }
+        else if (key == 'd') {
+            decoder.seek(5000);
+            start = start - std::chrono::milliseconds(5000);
+            if (playAudio)
+                audio.clear_queue();
         }
 
         if (paused) {
@@ -87,7 +94,8 @@ int main(int argc, char** argv) {
             continue;
         }
 
-        err = decoder.read_frame(frame);
+        AVDecoder::FrameData frame;
+        int err = decoder.read_frame(frame);
         if (err != 0) {
             done = true;
             break;
@@ -96,34 +104,41 @@ int main(int argc, char** argv) {
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
             if (playAudio) {
                 audio.play(frame.frame);
+
+                if (audio.get_queued_time() > 0.1) {
+                    audio.clear_queue();
+                }
             }
+            
+            continue; // The audio player automatically discards the frame.
+        }
+
+        int ms_elapsed = timer::ms(start, timer::now());
+        double s_elapsed = timer::ms(start, timer::now()) / 1000.0f;
+
+        // Occasionally every second, resync to account for any drift
+        if (ms_elapsed / 1000 > syncCounter) {
+            syncCounter = ms_elapsed / 1000;
+            audio.clear_queue();
+        }
+
+        renderer.set_title(fmt::format("pts: {:.2f} | elapsed: {:.2f}", frame.pts, s_elapsed));
+
+        if (frame.pts > s_elapsed) { // ahead
+            double diff = frame.pts - s_elapsed;
+            diff *= 1000.0;
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(diff)));
+        }
+        else { // behind
             continue;
         }
 
-        double framePTS = frame.pts;
-
-        double masterClock = 0.0;
-        if (playAudio) {
-            masterClock = audio.get_clock();
-        }
-        else {
-            auto now = timer::now();
-            double elapsedMs = timer::ms(start, now);
-            masterClock = elapsedMs / 1000.0;
-        }
-
-        double diff = framePTS - masterClock;
-
-        if (diff > 0) {
-            auto sleepDuration = std::chrono::duration<double>(diff);
-            std::this_thread::sleep_for(sleepDuration);
-        }
-        else {
-            continue;
-        }
-
+        // Decode and render video
         decoder.decode_video(buffer, renderer.width(), renderer.height());
         renderer.draw(buffer);
+
+        decoder.discard_frame();
     }
 
     renderer.reset_console();
