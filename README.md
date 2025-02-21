@@ -34,11 +34,9 @@ Install the Xcode command line tools:
 xcode-select --install
 ```
 
-Make sure you install [brew](https://brew.sh/).
-
-Install `cmake`:
+Make sure you install [brew](https://brew.sh/) and any other dependencies that may be needed:
 ```
-brew install cmake
+brew install cmake pkg-config nasm
 ```
 
 </details>

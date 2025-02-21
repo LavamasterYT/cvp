@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -120,9 +121,9 @@ public:
 	/**
 	 * @brief Self-explanitory
 	 * 
-	 * @return int 
+	 * @return std::chrono::seconds Time in chrono duration.
 	 */
-	int duration();
+	std::chrono::seconds duration();
 
 	/**
 	 * @brief Get the audio context object

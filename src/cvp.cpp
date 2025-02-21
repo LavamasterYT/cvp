@@ -5,9 +5,11 @@
 #include "config.h"
 #include "timer.h"
 #include "settings.h"
+#include "ui.h"
 
 #include <CLI/CLI.hpp>
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 
 #include <chrono>
 #include <cstdint>
@@ -29,13 +31,16 @@ int handle_args(int argc, char** argv) {
     app.add_option("-m, --mode", settings::colorMode, "Sets the render mode (ascii, palette, rgb)")
         ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case))
         ->default_val(Console::ColorMode::MODE_ASCII);
-    app.add_flag("-a,--audio", settings::playAudio, "Plays audio");
+    app.add_flag("-a,--audio", settings::playAudio, "Plays audio")
+        ->default_val(false);
+    app.add_flag("-d,--debug", settings::debug, "Shows debug information.");
 
     CLI11_PARSE(app, argc, argv);
     return 0;
 }
 
 int main(int argc, char** argv) {
+    // Load command line switches and configuration file
     if (handle_args(argc, argv) != 0)
         return -1;
 
@@ -44,21 +49,9 @@ int main(int argc, char** argv) {
     conf.add_option("audio", settings::playAudio);
     conf.add_option("debug", settings::debug);
     conf.add_option("ui", settings::showUI);
+    conf.parse();
 
-    fmt::println("Before:");
-    fmt::println("Audio: {}", settings::playAudio);
-    fmt::println("Debug: {}", settings::debug);
-    fmt::println("Show UI: {}", settings::showUI);
-
-    if (conf.parse())
-        fmt::println("{}", conf.get_last_error());
-
-    fmt::println("\nAfter:");
-    fmt::println("Audio: {}", settings::playAudio);
-    fmt::println("Debug: {}", settings::debug);
-    fmt::println("Show UI: {}", settings::showUI);
-
-    return 0;
+    // Open and setup player
 
     Console renderer;
     AVDecoder decoder;
@@ -71,6 +64,9 @@ int main(int argc, char** argv) {
     renderer.set_mode(settings::colorMode);
     renderer.initialize();
 
+    ui ui(decoder.duration());
+    ui.resize(renderer.width(), renderer.height());
+
     Audio audio(decoder.get_audio_context());
 
     if (settings::playAudio)
@@ -80,20 +76,33 @@ int main(int argc, char** argv) {
 
     bool done = false;
     bool paused = false;
+    double lastPts = 0.0;
 
     int syncCounter = 0;
+
+    int64_t uiHideCounterStart = 0;
+    bool drawUI = false;
 
     auto start = timer::now();
     auto pauseDelta = timer::now();
 
+    // Main player loop
     while (!done) {
+        int64_t ms_elapsed = timer::ms(start, timer::now());
+        double s_elapsed = timer::ms(start, timer::now()) / 1000.0f;
         int key = renderer.handle_keypress();
+
+        if (ms_elapsed - uiHideCounterStart >= 5000)
+            drawUI = false;
+        else
+            drawUI = true;
 
         switch (key) {
         case 'q':
             done = true;
             break;
         case ' ':
+            uiHideCounterStart = ms_elapsed;
             paused = !paused;
             if (paused) {
                 audio.clear_queue();
@@ -104,6 +113,7 @@ int main(int argc, char** argv) {
             }
             break;
         case 'a':
+            uiHideCounterStart = ms_elapsed;
             start = start + std::chrono::milliseconds(5000);
             if (timer::ms(start, timer::now()) < 0)
                 start = timer::now();
@@ -111,9 +121,13 @@ int main(int argc, char** argv) {
             audio.clear_queue();
             break;
         case 'd':
+            uiHideCounterStart = ms_elapsed;
             start = start - std::chrono::milliseconds(5000);
             decoder.seek(5000);
             audio.clear_queue();
+            break;
+        case 's':
+            uiHideCounterStart = ms_elapsed;
             break;
         case 'm':
             int cmode = (int)settings::colorMode;
@@ -124,6 +138,9 @@ int main(int argc, char** argv) {
             renderer.set_mode(settings::colorMode);
             break;
         }
+
+        if (drawUI)
+            ui.controls(lastPts, paused);
 
         if (paused) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -137,32 +154,34 @@ int main(int argc, char** argv) {
             break;
         }
 
+        lastPts = frame.pts;
+
+        if (settings::debug)
+            renderer.set_title(fmt::format("pts: {:.2f} | duration: {:%H:%M:%S}", frame.pts, decoder.duration()));
+
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
             audio.play(frame.frame);
             continue; // The audio player automatically discards the frame.
-        }
+        } 
 
-        int64_t ms_elapsed = timer::ms(start, timer::now());
-        double s_elapsed = timer::ms(start, timer::now()) / 1000.0f;
-
-        // Occasionally every second, resync to account for any drift
+        // Occasionally every couple of seconds, resync to account for any drift
         if (ms_elapsed / 2000 > syncCounter) {
             syncCounter = ms_elapsed / 2000;
             audio.clear_queue();
         }
 
-        if (frame.pts > s_elapsed) { // ahead
+        if (frame.pts > s_elapsed) { // We are ahead...
             double diff = frame.pts - s_elapsed;
             diff *= 1000.0;
             
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(diff)));
         }
-        else // behind
+        else // We are behind...
             continue;
 
         // Decode and render video
-        decoder.decode_video(buffer, renderer.width(), renderer.height());
-        renderer.draw(buffer);
+        decoder.decode_video(buffer, renderer.width(), drawUI ? renderer.height() - 2 : renderer.height());
+        renderer.draw(buffer, drawUI);
 
         decoder.discard_frame();
     }

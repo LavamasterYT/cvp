@@ -1,5 +1,6 @@
 #include "avdecoder.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -229,8 +230,16 @@ double AVDecoder::fps() {
     return av_q2d(framerate);
 }
 
-int AVDecoder::duration() {
-    return mFormatCtx->duration / 1000;
+std::chrono::seconds AVDecoder::duration() {
+    // Duration is returned in AV_TIME_BASE fractional seconds.
+    // Therefore, to get the duration in seconds, we must
+    // multiply the duration by 1/AV_TIME_BASE.
+    // We could also multiply duration by AV_TIME_BASE_Q
+
+    int64_t d = mFormatCtx->duration * av_q2d(AV_TIME_BASE_Q);
+    if (d < 0)
+        return std::chrono::seconds(1);
+    return std::chrono::seconds(d);
 }
 
 AVCodecContext* AVDecoder::get_audio_context() {

@@ -123,7 +123,7 @@ void Console::initialize() {
     reset_state();
 }
 
-void Console::draw(std::vector<colors::rgb>& buffer) {
+void Console::draw(std::vector<colors::rgb>& buffer, bool space) {
     // ASCII grayscale values
 	const char* ascii = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
     colors::rgb oldTop = { 0, 0, 0 };
@@ -138,7 +138,7 @@ void Console::draw(std::vector<colors::rgb>& buffer) {
     else if (mMode == MODE_ASCII)
         fmt::print(ESC "[0m");
 
-    for (int y = 0; y < mHeight; y += 2) {
+    for (int y = 0; y < (space ? (mHeight - 2) : (mHeight)); y += 2) {
         fmt::print(CSI "{};0H", (y / 2) + 1); // Set cursor to beginning of next line
 
         for (int x = 0; x < mWidth; x++) {

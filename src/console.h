@@ -73,8 +73,9 @@ public:
     /*
     * Draws an RGB buffer to the console.
     * @param buffer The RGB buffer. 
+    * @param space Draw an empty space below the video for UI drawing.
     */
-    void draw(std::vector<colors::rgb>& buffer);
+    void draw(std::vector<colors::rgb>& buffer, bool space = false);
 
     /*
     * Sets the render mode for the console
