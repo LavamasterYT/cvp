@@ -39,7 +39,7 @@ int handle_args(int argc, char** argv) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+int cvp_main(int argc, char** argv) {
     // Load command line switches and configuration file
     if (handle_args(argc, argv) != 0)
         return -1;
@@ -63,6 +63,7 @@ int main(int argc, char** argv) {
 
     renderer.set_mode(settings::colorMode);
     renderer.initialize();
+    decoder.rescale_decoder(renderer.width(), renderer.height());
 
     ui ui(decoder.duration());
     ui.resize(renderer.width(), renderer.height());
@@ -127,7 +128,10 @@ int main(int argc, char** argv) {
             audio.clear_queue();
             break;
         case 's':
-            uiHideCounterStart = ms_elapsed;
+            if (!drawUI)
+                uiHideCounterStart = ms_elapsed;
+            else
+                uiHideCounterStart -= 5000;
             break;
         case 'm':
             int cmode = (int)settings::colorMode;
@@ -157,7 +161,7 @@ int main(int argc, char** argv) {
         lastPts = frame.pts;
 
         if (settings::debug)
-            renderer.set_title(fmt::format("pts: {:.2f} | duration: {:%H:%M:%S}", frame.pts, decoder.duration()));
+            renderer.set_title(fmt::format("pts: {:.2f} | {} | duration: {:%H:%M:%S}", frame.pts, frame.stream == AVDECODER_STREAM_VIDEO ? "V" : "A", decoder.duration()));
 
         if (frame.stream == AVDECODER_STREAM_AUDIO) {
             audio.play(frame.frame);
@@ -180,7 +184,7 @@ int main(int argc, char** argv) {
             continue;
 
         // Decode and render video
-        decoder.decode_video(buffer, renderer.width(), drawUI ? renderer.height() - 2 : renderer.height());
+        decoder.decode_video(buffer);
         renderer.draw(buffer, drawUI);
 
         decoder.discard_frame();

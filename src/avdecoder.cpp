@@ -6,6 +6,10 @@
 #include <string>
 #include <vector>
 
+#include <fmt/core.h>
+
+#include "timer.h"
+
 extern "C" {
 	#include <libavcodec/avcodec.h>
 	#include <libavformat/avformat.h>
@@ -18,26 +22,32 @@ extern "C" {
 AVDecoder::AVDecoder() {
     mVideoIndex = -1;
     mAudioIndex = -1;
+    mTargetWidth = 0;
+    mTargetHeight = 0;
+    mScaledWidth = 0;
+    mScaledHeight = 0;
 
     mFormatCtx = avformat_alloc_context();
     mPacket = av_packet_alloc();
     mRawFrame = av_frame_alloc();
     mScaledFrame = av_frame_alloc();
+    mSws = nullptr;
     mVideoCtx = nullptr;
     mAudioCtx = nullptr;
     mVideoCodec = nullptr;
     mAudioCodec = nullptr;
 
-    av_log_set_level(AV_LOG_QUIET);
+    av_log_set_level(AV_LOG_VERBOSE);
 }
 
 AVDecoder::~AVDecoder() {
     if (mVideoCtx) avcodec_free_context(&mVideoCtx);
-    if (mAudioCtx) avcodec_free_context(&mVideoCtx);
+    if (mAudioCtx) avcodec_free_context(&mAudioCtx);
     if (mPacket) av_packet_free(&mPacket);
     if (mRawFrame) av_frame_free(&mRawFrame);
     if (mScaledFrame) av_frame_free(&mScaledFrame);
     if (mFormatCtx) avformat_close_input(&mFormatCtx);
+    if (mSws) sws_freeContext(mSws);
 }
 
 int AVDecoder::open(const char* file, bool openAudioStream) {
@@ -47,6 +57,8 @@ int AVDecoder::open(const char* file, bool openAudioStream) {
     ret = avformat_open_input(&mFormatCtx, file, nullptr, nullptr);
     if (ret != 0)
         return AVDECODER_ERROR_FILE;
+
+    avformat_find_stream_info(mFormatCtx, NULL);
 
     // Find best streams
     mVideoIndex = av_find_best_stream(mFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &mVideoCodec, 0);
@@ -74,10 +86,7 @@ int AVDecoder::open(const char* file, bool openAudioStream) {
             return AVDECODER_ERROR_CODEC_CTX;
     
     // Setup multithreading
-    if (mVideoCtx->codec_id == AV_CODEC_ID_VP9)
-        mVideoCtx->thread_count = 1;
-    else
-        mVideoCtx->thread_count = 0;
+    mVideoCtx->thread_count = 0;
     if (mVideoCodec->capabilities & AV_CODEC_CAP_FRAME_THREADS)
         mVideoCtx->thread_type = FF_THREAD_FRAME;
     else if (mVideoCodec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
@@ -107,7 +116,16 @@ int AVDecoder::read_frame(AVDecoder::FrameData& frame) {
 
         // Retrieve frame data
         if (mPacket->stream_index == mVideoIndex) {
-            if (avcodec_send_packet(mVideoCtx, mPacket) || avcodec_receive_frame(mVideoCtx, mRawFrame)) {
+            int ret = avcodec_send_packet(mVideoCtx, mPacket);
+            if (ret < 0 && ret != AVERROR(EAGAIN)) {
+                av_packet_unref(mPacket);
+                continue;
+            }
+            ret = avcodec_receive_frame(mVideoCtx, mRawFrame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                av_packet_unref(mPacket);
+                continue;
+            } else if (ret < 0) {
                 av_packet_unref(mPacket);
                 continue;
             }
@@ -145,11 +163,11 @@ void AVDecoder::discard_frame() {
     av_frame_unref(mRawFrame);
 }
 
-void AVDecoder::decode_video(std::vector<colors::rgb>& buffer, int width, int height) {
-    int scaledWidth, scaledHeight;
+void AVDecoder::rescale_decoder(int width, int height) {
+    mTargetWidth = width;
+    mTargetHeight = height;
+
     float videoAspectRatio, targetAspectRatio, scale;
-    std::vector<colors::rgb> scaledBuffer;
-    struct SwsContext* sws;
 
     // Determine aspect ratio and dimensions
     videoAspectRatio = static_cast<float>(mVideoCtx->width) / static_cast<float>(mVideoCtx->height);
@@ -157,55 +175,58 @@ void AVDecoder::decode_video(std::vector<colors::rgb>& buffer, int width, int he
 
     if (targetAspectRatio > videoAspectRatio) {
         scale = static_cast<float>(mVideoCtx->height) / static_cast<float>(height);
-        scaledHeight = height;
-        scaledWidth = static_cast<float>(mVideoCtx->width) / scale;
+        mScaledHeight = height;
+        mScaledWidth = static_cast<float>(mVideoCtx->width) / scale;
     }
     else {
         scale = static_cast<float>(mVideoCtx->width) / static_cast<float>(width);
-        scaledWidth = width;
-        scaledHeight = static_cast<float>(mVideoCtx->height) / scale;
+        mScaledWidth = width;
+        mScaledHeight = static_cast<float>(mVideoCtx->height) / scale;
     }
 
-    // Initialize scaler
-    sws = sws_getContext(mVideoCtx->width, mVideoCtx->height, mVideoCtx->pix_fmt, scaledWidth, scaledHeight, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
-    if (!sws)
+    mScaledBuffer.resize(mScaledWidth * mScaledHeight);
+
+    mSws = sws_getContext(mVideoCtx->width, mVideoCtx->height, mVideoCtx->pix_fmt, mScaledWidth, mScaledHeight, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+    if (!mSws)
         return;
+}
+
+void AVDecoder::decode_video(std::vector<colors::rgb>& buffer) {
 
     // Set buffer sizes
-    buffer.resize(width * height);
-    scaledBuffer.resize(scaledWidth * scaledHeight);
+    if (buffer.size() != mTargetHeight * mTargetWidth)
+        buffer.resize(mTargetWidth * mTargetHeight);
 
     // Initialize frame
-    if (av_image_fill_arrays(mScaledFrame->data, mScaledFrame->linesize, (uint8_t*)scaledBuffer.data(), AV_PIX_FMT_RGB24, scaledWidth, scaledHeight, 1) < 0)
+    if (av_image_fill_arrays(mScaledFrame->data, mScaledFrame->linesize, (uint8_t*)mScaledBuffer.data(), AV_PIX_FMT_RGB24, mScaledWidth, mScaledHeight, 1) < 0)
         return;
 
     // Scale
-    sws_scale(sws, (const uint8_t* const*)mRawFrame->data, mRawFrame->linesize, 0, mVideoCtx->height, mScaledFrame->data, mScaledFrame->linesize);
+    sws_scale(mSws, (const uint8_t* const*)mRawFrame->data, mRawFrame->linesize, 0, mVideoCtx->height, mScaledFrame->data, mScaledFrame->linesize);
 
     // Copy pixels to scaled buffer
-    for (int y = 0; y < scaledHeight; y++) {
+    for (int y = 0; y < mScaledHeight; y++) {
         int index = y * mScaledFrame->linesize[0];
-        memcpy(&scaledBuffer.at(scaledWidth * y), &mScaledFrame->data[0][index], scaledWidth * sizeof(colors::rgb));
+        memcpy(&mScaledBuffer.at(mScaledWidth * y), &mScaledFrame->data[0][index], mScaledWidth * sizeof(colors::rgb));
     }
 
-    if (scaledWidth == width) {
-        int offset = (height - scaledHeight) / 2;
+    if (mScaledWidth == mTargetWidth) {
+        int offset = (mTargetHeight - mScaledHeight) / 2;
 
-        for (int y = offset; y < scaledHeight + offset; y++)
-            for (int x = 0; x < width; x++)
-                buffer[x + width * y] = scaledBuffer[x + scaledWidth * (y - offset)];
+        for (int y = offset; y < mScaledHeight + offset; y++)
+            for (int x = 0; x < mTargetWidth; x++)
+                buffer[x + mTargetWidth * y] = mScaledBuffer[x + mScaledWidth * (y - offset)];
     }
-    else if (scaledHeight == height) {
-        int offset = (width - scaledWidth) / 2;
+    else if (mScaledHeight == mTargetHeight) {
+        int offset = (mTargetWidth - mScaledWidth) / 2;
 
-        for (int y = 0; y < height; y++)
-            for (int x = offset; x < scaledWidth + offset; x++)
-                buffer[x + width * y] = scaledBuffer[(x - offset) + scaledWidth * y];
+        for (int y = 0; y < mTargetHeight; y++)
+            for (int x = offset; x < mScaledWidth + offset; x++)
+                buffer[x + mTargetWidth * y] = mScaledBuffer[(x - offset) + mScaledWidth * y];
     }
 
     av_frame_unref(mRawFrame);
     av_frame_unref(mScaledFrame);
-    sws_freeContext(sws);
 }
 
 int64_t AVDecoder::seek(int64_t ms) {

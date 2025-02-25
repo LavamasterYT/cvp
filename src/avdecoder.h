@@ -36,6 +36,10 @@ class AVDecoder {
 private:
 	int mVideoIndex;
 	int mAudioIndex;
+	int mTargetWidth;
+	int mTargetHeight;
+	int mScaledWidth;
+	int mScaledHeight;
 
 	AVFormatContext* mFormatCtx;
 	AVCodecContext* mVideoCtx;
@@ -43,6 +47,8 @@ private:
 	AVPacket* mPacket;
 	AVFrame* mRawFrame;
 	AVFrame* mScaledFrame;
+	struct SwsContext* mSws;
+	std::vector<colors::rgb> mScaledBuffer;
 	const AVCodec* mAudioCodec;
 	const AVCodec* mVideoCodec;
 
@@ -93,13 +99,23 @@ public:
 	void discard_frame();
 
 	/**
+	 * @brief Reinitializes scaling structures
+	 * Whenever the target width and height for scaling down (or up) video changes, make sure that the
+	 * proper structs are reinitialized.
+	 * 
+	 * @param width 
+	 * @param height 
+	 */
+	void rescale_decoder(int width, int height);
+
+	/**
 	 * @brief Reads the raw video frame to a buffer.
 	 * Decodes and scales up or down the video frame to an RGB buffer. It also discards the frame after its done decoding.
 	 * @param buffer The buffer to write the decoded video to.
 	 * @param width The width to scale the video to.
 	 * @param height The height to scale the video to.
 	 */
-	void decode_video(std::vector<colors::rgb>& buffer, int width, int height);
+	void decode_video(std::vector<colors::rgb>& buffer);
 
 	/**
 	 * @brief Seeks the video forward or backward.

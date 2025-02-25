@@ -2,7 +2,9 @@
 
 #include <cstdint>
 
+#ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
+#endif
 #include <SDL2/SDL.h>
 
 extern "C" {
